@@ -121,6 +121,28 @@
   text-shadow: none;
 }
 
+.keyboard-active .crt-line.navigable:hover {
+  background: transparent;
+  color: var(--fg);
+  text-shadow:
+    0 0 var(--glow-radius, 8px) var(--glow),
+    0 0 calc(var(--glow-radius, 8px) * 2) color-mix(in srgb, var(--glow) 40%, transparent);
+}
+
+.crt-content:not(.keyboard-active) .crt-line.selected {
+  background: transparent;
+  color: var(--fg);
+  text-shadow:
+    0 0 var(--glow-radius, 8px) var(--glow),
+    0 0 calc(var(--glow-radius, 8px) * 2) color-mix(in srgb, var(--glow) 40%, transparent);
+}
+
+.crt-content:not(.keyboard-active) .crt-line.navigable:hover {
+  background: var(--fg);
+  color: var(--bg);
+  text-shadow: none;
+}
+
 .crt-cursor {
   display: inline-block;
   animation: blink-cursor step-end infinite;
@@ -151,8 +173,9 @@
 
 .crt-image-canvas {
   display: block;
-  max-width: 100%;
-  margin: 8px 0;
+  width: calc(100% - 2in);
+  height: auto;
+  margin: 8px auto;
   image-rendering: pixelated;
 }
 

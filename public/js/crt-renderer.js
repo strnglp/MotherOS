@@ -77,7 +77,7 @@ function applySettings(screen, content, s) {
   const scrollSpeed = s.scanlineSpeed > 0 ? (s.scanlineSpacing / s.scanlineSpeed) * 16.67 : 999999;
   style.setProperty("--scanline-duration", `${scrollSpeed}ms`);
 
-  content.style.fontFamily = s.fontFamily;
+  content.style.fontFamily = `"${s.fontFamily}", monospace`;
 
   const noise = screen.querySelector(".crt-noise");
   if (noise) {
@@ -96,6 +96,7 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
   for (const block of contentBlocks) {
     if (block.type === "text") {
       const pre = document.createElement("pre");
+      if (block.fontFamily) pre.style.fontFamily = `"${block.fontFamily}", monospace`;
       const lines = block.value.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
@@ -122,6 +123,7 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
     } else if (block.type === "menu") {
       const nav = document.createElement("pre");
       nav.className = "crt-menu";
+      if (block.fontFamily) nav.style.fontFamily = `"${block.fontFamily}", monospace`;
       for (let i = 0; i < block.items.length; i++) {
         const item = block.items[i];
         const span = document.createElement("span");
@@ -157,12 +159,16 @@ export function setHeaderFooter(crt, screen, terminal = null) {
   if (header) {
     crt.header.textContent = header;
     crt.header.style.display = "";
+    const hFont = screen.headerFont || terminal?.defaultHeaderFont;
+    crt.header.style.fontFamily = hFont ? `"${hFont}", monospace` : "";
   } else {
     crt.header.style.display = "none";
   }
   if (footer) {
     crt.footer.textContent = footer;
     crt.footer.style.display = "";
+    const fFont = screen.footerFont || terminal?.defaultFooterFont;
+    crt.footer.style.fontFamily = fFont ? `"${fFont}", monospace` : "";
   } else {
     crt.footer.style.display = "none";
   }

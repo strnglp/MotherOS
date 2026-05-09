@@ -35,6 +35,29 @@ export async function initBuilder(container) {
   const editorPanel = document.getElementById("editor-panel");
   const settingsPanel = document.getElementById("settings-panel");
 
+  const FONT_OPTIONS = ["", "VT323", "Share Tech Mono", "Space Mono", "DotGothic16", "Silkscreen", "Press Start 2P", "Doto", "Martian Mono", "Sometype Mono", "Fira Code", "IBM Plex Mono", "monospace"];
+
+  function createFontSelect(currentValue, onChange) {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "display:flex;align-items:center;gap:6px;margin-top:4px;";
+    const lbl = document.createElement("label");
+    lbl.textContent = "Font:";
+    lbl.style.cssText = "font-size:11px;color:#666;";
+    const select = document.createElement("select");
+    select.style.fontSize = "11px";
+    for (const f of FONT_OPTIONS) {
+      const opt = document.createElement("option");
+      opt.value = f;
+      opt.textContent = f || "(default)";
+      if (currentValue === f) opt.selected = true;
+      select.appendChild(opt);
+    }
+    select.addEventListener("change", () => onChange(select.value || null));
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(select);
+    return wrapper;
+  }
+
   async function refresh() {
     terminals = await listTerminals();
     renderSidebar();
@@ -50,6 +73,14 @@ export async function initBuilder(container) {
       name.className = "terminal-name";
       name.textContent = t.name || t.id;
       name.addEventListener("click", () => loadTerminal(t.id));
+      name.addEventListener("dblclick", async () => {
+        const newName = prompt("Rename terminal:", activeTerminal?.name || t.name || t.id);
+        if (!newName) return;
+        if (!activeTerminal || activeTerminal.id !== t.id) await loadTerminal(t.id);
+        activeTerminal.name = newName;
+        save();
+        refresh();
+      });
       group.appendChild(name);
 
       if (activeTerminal && activeTerminal.id === t.id) {
@@ -66,10 +97,66 @@ export async function initBuilder(container) {
         for (const screenId of Object.keys(activeTerminal.screens)) {
           const item = document.createElement("li");
           item.className = "screen-item";
+          item.style.display = "flex";
+          item.style.alignItems = "center";
+          item.style.justifyContent = "space-between";
           if (screenId === activeScreenId) item.classList.add("active");
           if (screenId === activeTerminal.entryScreen) item.classList.add("entry");
-          item.textContent = screenId;
-          item.addEventListener("click", () => selectScreen(screenId));
+
+          const itemLabel = document.createElement("span");
+          itemLabel.textContent = screenId;
+          itemLabel.style.flex = "1";
+          itemLabel.addEventListener("click", () => selectScreen(screenId));
+          itemLabel.addEventListener("dblclick", (e) => {
+            e.stopPropagation();
+            const newId = prompt("Rename screen:", screenId);
+            if (!newId || newId === screenId) return;
+            // Move screen data to new key
+            activeTerminal.screens[newId] = activeTerminal.screens[screenId];
+            delete activeTerminal.screens[screenId];
+            // Update entry screen reference
+            if (activeTerminal.entryScreen === screenId) activeTerminal.entryScreen = newId;
+            // Update all link targets pointing to old name
+            for (const s of Object.values(activeTerminal.screens)) {
+              const content = Array.isArray(s.content) ? s.content : [];
+              for (const block of content) {
+                if (block.type === "text" && block.links) {
+                  for (const link of block.links) {
+                    if (link.target === screenId) link.target = newId;
+                  }
+                }
+                if (block.type === "menu" && block.items) {
+                  for (const item of block.items) {
+                    if (item.target === screenId) item.target = newId;
+                  }
+                }
+              }
+            }
+            if (activeScreenId === screenId) activeScreenId = newId;
+            save();
+            renderSidebar();
+            selectScreen(activeScreenId);
+          });
+          item.appendChild(itemLabel);
+
+          if (screenId !== activeTerminal.entryScreen) {
+            const delBtn = document.createElement("button");
+            delBtn.textContent = "×";
+            delBtn.style.cssText = "font-size:12px;padding:0 4px;border:none;color:#666;background:none;cursor:pointer;";
+            delBtn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              if (!confirm(`Delete screen "${screenId}"?`)) return;
+              delete activeTerminal.screens[screenId];
+              if (activeScreenId === screenId) {
+                activeScreenId = activeTerminal.entryScreen || Object.keys(activeTerminal.screens)[0];
+              }
+              save();
+              renderSidebar();
+              if (activeScreenId) selectScreen(activeScreenId);
+            });
+            item.appendChild(delBtn);
+          }
+
           item.addEventListener("contextmenu", (e) => {
             e.preventDefault();
             showScreenContextMenu(e, screenId);
@@ -114,7 +201,7 @@ export async function initBuilder(container) {
   function selectTerminalDefaults() {
     activeScreenId = null;
     renderSidebar();
-    previewContainer.innerHTML = "";
+    renderPreview();
 
     editorPanel.innerHTML = "";
 
@@ -135,11 +222,18 @@ export async function initBuilder(container) {
     headerInput.addEventListener("input", () => {
       activeTerminal.defaultHeader = headerInput.value || null;
       save();
+      renderPreview();
     });
     editorPanel.appendChild(headerInput);
+    editorPanel.appendChild(createFontSelect(activeTerminal.defaultHeaderFont || "", (val) => {
+      activeTerminal.defaultHeaderFont = val;
+      save();
+      renderPreview();
+    }));
 
     const footerLabel = document.createElement("label");
     footerLabel.textContent = "Default Footer";
+    footerLabel.style.marginTop = "12px";
     editorPanel.appendChild(footerLabel);
     const footerInput = document.createElement("input");
     footerInput.type = "text";
@@ -149,14 +243,39 @@ export async function initBuilder(container) {
     footerInput.addEventListener("input", () => {
       activeTerminal.defaultFooter = footerInput.value || null;
       save();
+      renderPreview();
     });
     editorPanel.appendChild(footerInput);
+    editorPanel.appendChild(createFontSelect(activeTerminal.defaultFooterFont || "", (val) => {
+      activeTerminal.defaultFooterFont = val;
+      save();
+      renderPreview();
+    }));
 
     renderSettings();
   }
 
   function renderPreview() {
-    if (!activeTerminal || !activeScreenId) return;
+    if (!activeTerminal) return;
+
+    if (!activeScreenId) {
+      // Defaults preview
+      const settings = { ...getDefaultSettings(), ...activeTerminal.defaults };
+      injectBarrelFilter(settings.curvatureAmount || 0.03);
+      const crt = createCRTScreen(previewContainer, settings);
+      const sampleContent = [
+        { type: "text", value: "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n0123456789 !@#$%^&*()\n\nThe quick brown fox jumps\nover the lazy dog." },
+        { type: "menu", id: "sample-menu", items: [
+          { label: "Menu Item One", target: "" },
+          { label: "Menu Item Two", target: "" },
+          { label: "Menu Item Three", target: "" },
+        ]},
+      ];
+      setHeaderFooter(crt, { header: activeTerminal.defaultHeader || "HEADER PREVIEW", footer: activeTerminal.defaultFooter || "FOOTER PREVIEW" }, activeTerminal);
+      renderContent(crt.content, sampleContent, { selectedLinkId: "sample-menu-1" });
+      return;
+    }
+
     const screen = activeTerminal.screens[activeScreenId];
     if (!screen) return;
 
@@ -193,6 +312,11 @@ export async function initBuilder(container) {
       renderPreview();
     });
     editorPanel.appendChild(headerInput);
+    editorPanel.appendChild(createFontSelect(screen.headerFont || "", (val) => {
+      screen.headerFont = val;
+      save();
+      renderPreview();
+    }));
 
     const label = document.createElement("label");
     label.textContent = "Screen Content";
@@ -235,6 +359,12 @@ export async function initBuilder(container) {
           renderPreview();
         });
         blockEl.appendChild(textarea);
+        blockEl.appendChild(createFontSelect(block.fontFamily || "", (val) => {
+          block.fontFamily = val;
+          screen.content = content;
+          save();
+          renderPreview();
+        }));
 
         // Links for this text block
         const linksDiv = document.createElement("div");
@@ -381,6 +511,12 @@ export async function initBuilder(container) {
 
         blockEl.appendChild(itemsList);
         blockEl.appendChild(addItemBtn);
+        blockEl.appendChild(createFontSelect(block.fontFamily || "", (val) => {
+          block.fontFamily = val;
+          screen.content = content;
+          save();
+          renderPreview();
+        }));
       }
 
       blocksContainer.appendChild(blockEl);
@@ -439,6 +575,11 @@ export async function initBuilder(container) {
       renderPreview();
     });
     editorPanel.appendChild(footerInput);
+    editorPanel.appendChild(createFontSelect(screen.footerFont || "", (val) => {
+      screen.footerFont = val;
+      save();
+      renderPreview();
+    }));
   }
 
   function renderSettings() {
@@ -521,6 +662,7 @@ export async function initBuilder(container) {
         { key: "slowTypeBatchSize", label: "Batch Size", min: 1, max: 20, step: 1 },
       ]},
       { name: "Font", settings: [
+        { key: "fontFamily", label: "Family", type: "select", options: FONT_OPTIONS.filter(Boolean) },
         { key: "fontSize", label: "Size (px)", min: 10, max: 32, step: 1 },
       ]},
       { name: "Audio", settings: [
@@ -668,8 +810,9 @@ export async function initBuilder(container) {
   }
 
   function addScreen() {
-    const id = prompt("Screen ID (e.g., 'search'):");
-    if (!id || !activeTerminal) return;
+    const rawId = prompt("Screen ID (e.g., 'search'):");
+    if (!rawId || !activeTerminal) return;
+    const id = rawId.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     activeTerminal.screens[id] = {
       content: [{ type: "text", value: `  ${id.toUpperCase()}`, links: [] }],
       overrides: null,

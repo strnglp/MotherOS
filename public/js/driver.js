@@ -16,6 +16,7 @@ export function initDriver(container, { terminal: terminalId, room }) {
   let cancelTyping = null;
   let crt = null;
   let history = [];
+  let animating = false;
 
   const ws = createWSClient({
     onOpen() {
@@ -36,7 +37,13 @@ export function initDriver(container, { terminal: terminalId, room }) {
   });
 
   function navigateTo(screenId, broadcast = true) {
-    if (!terminal || !terminal.screens[screenId]) return;
+    if (!terminal) return;
+    // Case-insensitive screen lookup
+    if (!terminal.screens[screenId]) {
+      const match = Object.keys(terminal.screens).find((k) => k.toLowerCase() === screenId.toLowerCase());
+      if (match) screenId = match;
+      else return;
+    }
 
     if (currentScreen) {
       history.push(currentScreen);
@@ -54,9 +61,17 @@ export function initDriver(container, { terminal: terminalId, room }) {
     links = getAllLinks(screen.content);
     selectedIndex = 0;
 
+    crt.content.classList.add("keyboard-active");
     renderContent(crt.content, screen.content, {
       selectedLinkId: links[0]?.id,
       onLinkClick: (link) => {
+        if (animating) {
+          if (cancelTyping) cancelTyping();
+          cancelTyping = null;
+          animating = false;
+          stopTypingSound();
+          return;
+        }
         playNavSound(effectiveSettings);
         navigateTo(link.target);
       },
@@ -64,9 +79,12 @@ export function initDriver(container, { terminal: terminalId, room }) {
 
     // Start reveals
     if (cancelTyping) cancelTyping();
+    cancelTyping = null;
+    animating = true;
     startTypingSound(effectiveSettings);
     cancelTyping = slowType(crt.content, screen.content, effectiveSettings, () => {
       stopTypingSound();
+      animating = false;
     });
     revealAllImages(crt.content, terminal.id, effectiveSettings);
 
@@ -86,10 +104,26 @@ export function initDriver(container, { terminal: terminalId, room }) {
         target.scrollIntoView({ block: "nearest" });
       }
     }
+    crt.content.classList.add("keyboard-active");
   }
+
+  // Mouse movement disables keyboard-active mode
+  document.addEventListener("mousemove", () => {
+    if (crt) crt.content.classList.remove("keyboard-active");
+  });
 
   document.addEventListener("keydown", (e) => {
     if (!crt) return;
+
+    // Any key finishes animation
+    if (animating) {
+      e.preventDefault();
+      if (cancelTyping) cancelTyping();
+      cancelTyping = null;
+      animating = false;
+      stopTypingSound();
+      return;
+    }
 
     switch (e.key) {
       case "ArrowUp":
