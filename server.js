@@ -235,6 +235,7 @@ wss.on("connection", (ws) => {
         screen: screenId,
         content: screen.content,
         overrides: screen.overrides || null,
+        header: msg.header || null,
       };
       ws.send(JSON.stringify(navMsg));
       broadcast(currentRoom, navMsg, ws);

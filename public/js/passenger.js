@@ -23,6 +23,7 @@ export function initPassenger(container, { room }) {
         settings = terminal.defaults || {};
         injectBarrelFilter(settings.curvatureAmount || 0.03);
         crt = createCRTScreen(container, settings);
+        crt.screen.classList.add("crt-passenger");
 
         const screen = terminal.screens[msg.currentScreen];
         if (screen) {
@@ -35,7 +36,7 @@ export function initPassenger(container, { room }) {
         const screen = terminal.screens[msg.screen];
         const effectiveSettings = { ...settings, ...(msg.overrides || {}) };
         crt.update(effectiveSettings);
-        if (screen) setHeaderFooter(crt, screen, terminal);
+        setHeaderFooter(crt, { header: msg.header || screen?.header, footer: screen?.footer }, terminal);
         playNavSound(effectiveSettings);
 
         const links = getAllLinks(msg.content);
@@ -74,7 +75,8 @@ export function initPassenger(container, { room }) {
   function showScreen(screen) {
     const effectiveSettings = { ...settings, ...screen.overrides };
     crt.update(effectiveSettings);
-    setHeaderFooter(crt, { header: screen.header, footer: screen.footer }, terminal);
+    const navHints = "[↑↓] SELECT  [ENTER] GO";
+    setHeaderFooter(crt, { header: screen.header || navHints, footer: screen.footer }, terminal);
     crt.content.classList.add("keyboard-active");
     const links = getAllLinks(screen.content);
     renderContent(crt.content, screen.content, { selectedLinkId: links[0]?.id });

@@ -121,6 +121,16 @@
   cursor: pointer;
 }
 
+.crt-passenger .crt-line.navigable {
+  cursor: default;
+}
+
+.crt-passenger .crt-line.navigable:hover:not(.selected) {
+  background: transparent;
+  color: var(--fg);
+  text-shadow: var(--text-glow);
+}
+
 .crt-line.selected {
   background: var(--fg);
   color: var(--bg);

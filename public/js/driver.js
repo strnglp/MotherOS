@@ -70,6 +70,7 @@ export function initDriver(container, { terminal: terminalId, room }) {
           animating = false;
           stopTypingSound();
           ws.send({ type: "skip" });
+          updateSelection();
           return;
         }
         playNavSound(effectiveSettings);
@@ -94,7 +95,7 @@ export function initDriver(container, { terminal: terminalId, room }) {
     revealAllImages(crt.content, terminal.id, effectiveSettings);
 
     if (broadcast) {
-      ws.send({ type: "navigate", screen: screenId });
+      ws.send({ type: "navigate", screen: screenId, header: screen.header || navHints });
       playNavSound(effectiveSettings);
     }
   }
@@ -113,12 +114,21 @@ export function initDriver(container, { terminal: terminalId, room }) {
     crt.content.classList.add("kb-active");
   }
 
-  document.addEventListener("mousemove", () => {
+  document.addEventListener("mousemove", (e) => {
     if (!crt) return;
     crt.content.classList.remove("kb-active");
-    // Remove .selected so only hover shows
-    const sel = crt.content.querySelector(".crt-line.selected");
-    if (sel) sel.classList.remove("selected");
+    // If hovering a navigable item, hide .selected; otherwise show it
+    const hovering = e.target.closest?.(".crt-line.navigable");
+    if (hovering) {
+      const sel = crt.content.querySelector(".crt-line.selected");
+      if (sel && sel !== hovering) sel.classList.remove("selected");
+    } else {
+      // Mouse left menu items — re-apply selection
+      if (!crt.content.querySelector(".crt-line.selected") && links[selectedIndex]) {
+        const target = crt.content.querySelector(`[data-link-id="${links[selectedIndex].id}"]`);
+        if (target) target.classList.add("selected");
+      }
+    }
   });
 
 
@@ -133,6 +143,7 @@ export function initDriver(container, { terminal: terminalId, room }) {
       animating = false;
       stopTypingSound();
       ws.send({ type: "skip" });
+      updateSelection();
       return;
     }
 
