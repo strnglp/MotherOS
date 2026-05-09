@@ -1,4 +1,4 @@
-import { createNoiseCanvas } from "./barrel-distortion.js";
+import { createCRTRenderer } from "./barrel-distortion.js";
 
 function computeGlow(hex) {
   const h = (hex || "#00ff33").replace("#", "");
@@ -19,7 +19,6 @@ function computeGlow(hex) {
     else hue = ((r - g) / d + 4) / 6;
   }
 
-  // Shift hue 30deg, darken to 40% lightness, boost saturation
   const shiftedHue = (hue + 30 / 360) % 1.0;
   const shiftedLit = lit * 0.4;
   const shiftedSat = Math.min(1, sat * 1.2);
@@ -98,54 +97,199 @@ export function createCRTScreen(container, settings = {}) {
 
   inner.appendChild(header);
   inner.appendChild(content);
-  inner.appendChild(footer);
-
-  const noiseCanvas = createNoiseCanvas();
-  noiseCanvas.className = "crt-noise";
+  content.appendChild(footer);
 
   screen.appendChild(inner);
-  screen.appendChild(noiseCanvas);
   container.appendChild(screen);
+
+  // Set up WebGL renderer
+  let renderer = null;
+  const rect = screen.getBoundingClientRect();
+  const w = Math.round(rect.width) || 800;
+  const h = Math.round(rect.height) || 600;
+  renderer = createCRTRenderer(screen, w, h);
+  if (renderer) {
+    renderer.glCanvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;z-index:15;pointer-events:none;border-radius:20px;";
+    renderer.setSettings(s);
+    inner.style.opacity = "0";
+    inner.style.zIndex = "16";
+    document.fonts.ready.then(() => startRenderLoop(renderer, inner, screen, s));
+  }
 
   applySettings(screen, content, s);
 
-  return { screen, content, header, footer, update: (newSettings) => applySettings(screen, content, { ...s, ...newSettings }) };
+  return { screen, content, header, footer, renderer, update: (newSettings) => {
+    Object.assign(s, newSettings);
+    if (renderer?._settings) Object.assign(renderer._settings, s);
+    applySettings(screen, content, s);
+  }};
+}
+
+function startRenderLoop(renderer, inner, screen, settings) {
+  renderer._settings = settings;
+  let running = true;
+
+  function paint(time) {
+    if (!running) return;
+
+    const { ctx, sourceCanvas } = renderer;
+    const w = sourceCanvas.width;
+    const h = sourceCanvas.height;
+
+    // Check if resize needed
+    const rect = screen.getBoundingClientRect();
+    const rw = Math.round(rect.width);
+    const rh = Math.round(rect.height);
+    if (rw > 0 && rh > 0 && (rw !== w || rh !== h)) {
+      renderer.resize(rw, rh);
+    }
+
+    const cw = sourceCanvas.width;
+    const ch = sourceCanvas.height;
+
+    // Clear with background
+    ctx.fillStyle = settings.colorBackground || "#001a00";
+    ctx.fillRect(0, 0, cw, ch);
+
+    // Draw text/images from DOM state onto 2D canvas
+    ctx.save();
+    renderDOMToCanvas(ctx, inner, cw, ch, settings);
+    ctx.restore();
+
+    // Push to WebGL (shader applies scanlines, vignette, glow, noise, flicker, curvature)
+    renderer.render(time);
+
+    requestAnimationFrame(paint);
+  }
+
+  paint();
+
+  renderer.glCanvas.destroy = () => { running = false; };
+}
+
+function renderDOMToCanvas(ctx, inner, w, h, settings) {
+  const fg = settings.colorForeground || "#00ff33";
+  const glow = computeGlow(fg);
+  const fontSize = settings.fontSize || 18;
+  const fontFamily = settings.fontFamily || "monospace";
+  const font = `${fontSize}px "${fontFamily}", monospace`;
+  const lineHeight = fontSize * 1.4;
+
+  ctx.font = font;
+  ctx.textBaseline = "top";
+
+  const screenRect = inner.closest(".crt-screen").getBoundingClientRect();
+
+  // Header
+  const headerEl = inner.querySelector(".crt-header");
+  if (headerEl && headerEl.style.display !== "none" && headerEl.style.visibility !== "hidden") {
+    const r = headerEl.getBoundingClientRect();
+    const x = r.left - screenRect.left;
+    const y = r.top - screenRect.top;
+    drawGlowText(ctx, headerEl.textContent.toUpperCase(), x, y, fg, glow, settings.glowRadius * settings.glowIntensity);
+    // Border
+    ctx.strokeStyle = fg + "4d";
+    ctx.beginPath();
+    ctx.moveTo(x, y + r.height);
+    ctx.lineTo(x + r.width, y + r.height);
+    ctx.stroke();
+  }
+
+  // Content
+  const contentEl = inner.querySelector(".crt-content");
+  if (contentEl) {
+    for (const child of contentEl.children) {
+      if (child.classList.contains("crt-divider")) {
+        if (child.style.visibility === "hidden") continue;
+        const r = child.getBoundingClientRect();
+        const x = r.left - screenRect.left;
+        const y = r.top - screenRect.top;
+        ctx.strokeStyle = fg + "4d";
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + r.width, y);
+        ctx.stroke();
+      } else if (child.classList.contains("crt-image-canvas")) {
+        if (child.width > 0 && child.height > 0) {
+          const r = child.getBoundingClientRect();
+          const x = r.left - screenRect.left;
+          const y = r.top - screenRect.top;
+          ctx.drawImage(child, x, y, r.width, r.height);
+        }
+      } else {
+        const blockFont = child.style.fontFamily
+          ? `${fontSize}px ${child.style.fontFamily}`
+          : font;
+        ctx.font = blockFont;
+
+        const lines = child.querySelectorAll(".crt-line");
+        for (const line of lines) {
+          if (line.style.visibility === "hidden") continue;
+          const text = line.innerText.toUpperCase();
+          if (!text.trim() && line.style.height) continue;
+
+          const r = line.getBoundingClientRect();
+          const x = r.left - screenRect.left;
+          const y = r.top - screenRect.top;
+
+          if (line.classList.contains("selected")) {
+            ctx.fillStyle = fg;
+            ctx.fillRect(x - 4, y - 2, r.width + 8, lineHeight);
+            ctx.fillStyle = settings.colorBackground || "#001a00";
+            ctx.font = blockFont;
+            drawGlowText(ctx, text, x, y, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
+          } else {
+            ctx.font = blockFont;
+            drawGlowText(ctx, text, x, y, fg, glow, settings.glowRadius * settings.glowIntensity);
+          }
+        }
+      }
+    }
+  }
+
+  // Footer
+  const footerEl = inner.querySelector(".crt-footer");
+  if (footerEl && footerEl.style.display !== "none" && footerEl.style.visibility !== "hidden") {
+    const r = footerEl.getBoundingClientRect();
+    const x = r.left - screenRect.left;
+    const y = r.top - screenRect.top;
+    // Border
+    ctx.strokeStyle = fg + "4d";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + r.width, y);
+    ctx.stroke();
+    drawGlowText(ctx, footerEl.textContent.toUpperCase(), x, y + 4, fg, glow, settings.glowRadius * settings.glowIntensity);
+  }
+}
+
+function drawGlowText(ctx, text, x, y, color, glowColor, radius) {
+  const charWidth = ctx.measureText("MMMMMMMMMM").width / 10;
+
+  if (radius > 0) {
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = radius;
+  }
+  ctx.fillStyle = color;
+
+  for (let i = 0; i < text.length; i++) {
+    ctx.fillText(text[i], x + i * charWidth, y);
+  }
+
+  ctx.shadowBlur = 0;
 }
 
 function applySettings(screen, content, s) {
   const style = screen.style;
   style.setProperty("--fg", s.colorForeground);
   style.setProperty("--bg", s.colorBackground);
-  style.setProperty("--glow", computeGlow(s.colorForeground));
-  style.setProperty("--alert", s.colorAlert || "#ff3333");
-  style.setProperty("--alert-glow", computeGlow(s.colorAlert || "#ff3333"));
-  style.setProperty("--highlight", s.colorHighlight || "#ffff00");
-  style.setProperty("--highlight-glow", computeGlow(s.colorHighlight || "#ffff00"));
-  const r = s.glowRadius * s.glowIntensity;
-  const glowVal = computeGlow(s.colorForeground);
-  style.setProperty("--glow-radius", `${s.glowRadius}px`);
-  style.setProperty("--text-glow", r > 0 ? `0 0 ${r}px ${glowVal}` : "none");
-  style.setProperty("--scanline-intensity", s.scanlineIntensity);
-  style.setProperty("--scanline-spacing", `${s.scanlineSpacing}px`);
-  style.setProperty("--vignette-intensity", s.vignetteIntensity);
-  style.setProperty("--flicker-min", 1 - s.flickerIntensity);
-  style.setProperty("--flicker-speed", `${s.flickerSpeed}ms`);
-  style.setProperty("--noise-intensity", s.noiseIntensity);
   style.setProperty("--font-size", `${s.fontSize}px`);
-  style.setProperty("--cursor-blink-speed", `${s.cursorBlinkSpeed}ms`);
-
-  const scrollSpeed = s.scanlineSpeed > 0 ? (s.scanlineSpacing / s.scanlineSpeed) * 16.67 : 999999;
-  style.setProperty("--scanline-duration", `${scrollSpeed}ms`);
-
   content.style.fontFamily = `"${s.fontFamily}", monospace`;
-
-  const noise = screen.querySelector(".crt-noise");
-  if (noise) {
-    noise.style.opacity = s.noiseIntensity;
-  }
 }
 
 export function renderContent(contentEl, contentBlocks, options = {}) {
+  // Preserve footer if it's inside content
+  const footer = contentEl.querySelector(".crt-footer");
   contentEl.innerHTML = "";
   const { selectedLinkId, onLinkClick, onLinkHover } = options;
 
@@ -154,6 +298,13 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
   }
 
   for (const block of contentBlocks) {
+    if (block.divider) {
+      const hr = document.createElement("hr");
+      hr.className = "crt-divider";
+      hr.style.visibility = "hidden";
+      contentEl.appendChild(hr);
+    }
+
     if (block.type === "text") {
       const pre = document.createElement("pre");
       if (block.fontFamily) pre.style.fontFamily = `"${block.fontFamily}", monospace`;
@@ -217,9 +368,13 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
       canvas.dataset.revealStyle = block.revealStyle || "pixelate";
       canvas.dataset.revealSpeed = block.revealSpeed || 150;
       canvas.dataset.blendMode = block.blendMode || "normal";
+      if (block.width) canvas.style.width = `${block.width}px`;
       contentEl.appendChild(canvas);
     }
   }
+
+  // Re-append footer at end of content
+  if (footer) contentEl.appendChild(footer);
 }
 
 export function setHeaderFooter(crt, screen, terminal = null) {
@@ -227,7 +382,8 @@ export function setHeaderFooter(crt, screen, terminal = null) {
   const footer = screen.footer || terminal?.defaultFooter;
 
   if (header) {
-    crt.header.textContent = header;
+    crt.header.dataset.fullText = header;
+    crt.header.textContent = "";
     crt.header.style.display = "";
     const hFont = screen.headerFont || terminal?.defaultHeaderFont;
     crt.header.style.fontFamily = hFont ? `"${hFont}", monospace` : "";
@@ -235,7 +391,8 @@ export function setHeaderFooter(crt, screen, terminal = null) {
     crt.header.style.display = "none";
   }
   if (footer) {
-    crt.footer.textContent = footer;
+    crt.footer.dataset.fullText = footer;
+    crt.footer.textContent = "";
     crt.footer.style.display = "";
     const fFont = screen.footerFont || terminal?.defaultFooterFont;
     crt.footer.style.fontFamily = fFont ? `"${fFont}", monospace` : "";

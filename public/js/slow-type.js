@@ -15,28 +15,39 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
     contentBlocks = [{ type: "text", value: contentBlocks }];
   }
 
-  const typeable = contentBlocks.filter((b) => b.type === "text" || b.type === "menu");
-  const preElements = contentEl.querySelectorAll("pre");
-
-  // Build a flat list of characters to reveal across all typeable blocks
+  // Build segments from all elements that need revealing: header, content blocks, dividers, footer
   const segments = [];
-  let preIdx = 0;
-  for (const block of typeable) {
-    const pre = preElements[preIdx];
-    if (!pre) { preIdx++; continue; }
+  const inner = contentEl.closest(".crt-inner");
 
-    if (block.type === "text") {
-      segments.push({ pre, text: block.value, type: "text" });
-    } else if (block.type === "menu") {
-      const fullText = block.items.map((item) => item.label).join("\n");
-      segments.push({ pre, text: fullText, type: "menu" });
+  // Header
+  const headerEl = inner?.querySelector(".crt-header");
+  if (headerEl && headerEl.style.display !== "none" && headerEl.dataset.fullText) {
+    segments.push({ type: "header", el: headerEl, text: headerEl.dataset.fullText });
+  }
+
+  // Content children: dividers, pre (text/menu), images
+  for (const child of contentEl.children) {
+    if (child.classList.contains("crt-divider")) {
+      segments.push({ type: "divider", el: child });
+    } else if (child.classList.contains("crt-footer")) {
+      segments.push({ type: "footer", el: child, text: child.dataset.fullText || child.textContent });
+    } else if (child.tagName === "PRE") {
+      const lines = child.querySelectorAll(".crt-line");
+      const text = Array.from(lines).map((l) => l.innerText || " ").join("\n");
+      segments.push({ type: "text", el: child, pre: child, text, lines });
     }
-    preIdx++;
   }
 
   // Hide all initially
   for (const seg of segments) {
-    updateVisibility(seg.pre, seg.text, 0);
+    if (seg.type === "header" || seg.type === "footer") {
+      seg.el.style.visibility = "hidden";
+      seg.el.textContent = "";
+    } else if (seg.type === "divider") {
+      seg.el.style.visibility = "hidden";
+    } else if (seg.type === "text") {
+      updatePreVisibility(seg.pre, seg.text, 0);
+    }
   }
 
   let segIndex = 0;
@@ -51,10 +62,32 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
     }
 
     const seg = segments[segIndex];
+
+    if (seg.type === "divider") {
+      seg.el.style.visibility = "visible";
+      segIndex++;
+      charIndex = 0;
+      setTimeout(tick, slowTypeSpeed * 1000);
+      return;
+    }
+
+    if (seg.type === "header" || seg.type === "footer") {
+      seg.el.style.visibility = "visible";
+      const batch = Math.ceil(Math.random() * slowTypeBatchSize) + 1;
+      charIndex = Math.min(charIndex + batch, seg.text.length);
+      seg.el.textContent = seg.text.substring(0, charIndex).toUpperCase();
+      if (charIndex >= seg.text.length) {
+        segIndex++;
+        charIndex = 0;
+      }
+      setTimeout(tick, slowTypeSpeed * 1000);
+      return;
+    }
+
+    // Text/menu block
     const batch = Math.ceil(Math.random() * slowTypeBatchSize) + 1;
     charIndex = Math.min(charIndex + batch, seg.text.length);
-
-    updateVisibility(seg.pre, seg.text, charIndex);
+    updatePreVisibility(seg.pre, seg.text, charIndex);
 
     if (charIndex >= seg.text.length) {
       segIndex++;
@@ -69,7 +102,14 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
   return () => {
     cancel = true;
     for (const seg of segments) {
-      updateVisibility(seg.pre, seg.text, seg.text.length);
+      if (seg.type === "header" || seg.type === "footer") {
+        seg.el.style.visibility = "visible";
+        seg.el.textContent = seg.text.toUpperCase();
+      } else if (seg.type === "divider") {
+        seg.el.style.visibility = "visible";
+      } else if (seg.type === "text") {
+        updatePreVisibility(seg.pre, seg.text, seg.text.length);
+      }
     }
     onComplete?.();
   };
@@ -85,7 +125,7 @@ function cachedColorize(text) {
   return result;
 }
 
-function updateVisibility(pre, fullText, visibleChars) {
+function updatePreVisibility(pre, fullText, visibleChars) {
   const lines = fullText.split("\n");
   const spans = pre.querySelectorAll(".crt-line");
   let charCount = 0;
@@ -96,13 +136,12 @@ function updateVisibility(pre, fullText, visibleChars) {
     const lineEnd = charCount + lineText.length;
 
     if (lineStart >= visibleChars) {
-      spans[i].textContent = "";
+      spans[i].innerHTML = "";
       spans[i].style.visibility = "hidden";
     } else if (lineEnd <= visibleChars) {
       spans[i].innerHTML = cachedColorize(lineText);
       spans[i].style.visibility = "visible";
     } else {
-      // Partial line — use textContent (no colorize, avoids broken tags)
       spans[i].textContent = lineText.substring(0, visibleChars - lineStart);
       spans[i].style.visibility = "visible";
     }

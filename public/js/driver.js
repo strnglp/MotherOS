@@ -3,7 +3,6 @@ import { createWSClient } from "./ws-client.js";
 import { slowType } from "./slow-type.js";
 import { revealAllImages } from "./image-reveal.js";
 import { preloadAudio, startTypingSound, stopTypingSound, playNavSound } from "./audio.js";
-import { injectBarrelFilter } from "./barrel-distortion.js";
 
 export function initDriver(container, { terminal: terminalId, room }) {
   preloadAudio();
@@ -26,9 +25,8 @@ export function initDriver(container, { terminal: terminalId, room }) {
       if (msg.type === "state") {
         terminal = msg.terminal;
         settings = terminal.defaults || {};
-        injectBarrelFilter(settings.curvatureAmount || 0.03);
         crt = createCRTScreen(container, settings);
-        navigateTo(msg.currentScreen, false);
+        document.fonts.ready.then(() => setTimeout(() => navigateTo(msg.currentScreen, false), 1000));
       }
       if (msg.type === "navigate") {
         // Acknowledgement from server, already handled locally

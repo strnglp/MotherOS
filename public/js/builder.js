@@ -1,7 +1,6 @@
 import { createCRTScreen, renderContent, setHeaderFooter } from "./crt-renderer.js";
 import { listTerminals, getTerminal, createTerminal, updateTerminal, deleteTerminal, uploadAsset } from "./api-client.js";
 import { playPreview, stopPreview, playOnce, preloadAudio } from "./audio.js";
-import { injectBarrelFilter } from "./barrel-distortion.js";
 import { revealAllImages } from "./image-reveal.js";
 
 export async function initBuilder(container) {
@@ -262,7 +261,6 @@ export async function initBuilder(container) {
 
     if (!activeScreenId) {
       const settings = { ...getDefaultSettings(), ...activeTerminal.defaults };
-      injectBarrelFilter(settings.curvatureAmount || 0.03);
       currentCrt = createCRTScreen(previewContainer, settings);
       const sampleContent = [
         { type: "text", value: "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n0123456789 !@#$%^&*()\n\nThe quick brown fox jumps\nover the lazy dog.\n\n*Alert text sample*\n/Highlight text sample/" },
@@ -273,6 +271,8 @@ export async function initBuilder(container) {
         ]},
       ];
       setHeaderFooter(currentCrt, { header: activeTerminal.defaultHeader || "HEADER PREVIEW", footer: activeTerminal.defaultFooter || "FOOTER PREVIEW" }, activeTerminal);
+      currentCrt.header.textContent = currentCrt.header.dataset.fullText || "";
+      currentCrt.footer.textContent = currentCrt.footer.dataset.fullText || "";
       renderContent(currentCrt.content, sampleContent, { selectedLinkId: "sample-menu-1" });
       return;
     }
@@ -281,9 +281,10 @@ export async function initBuilder(container) {
     if (!screen) return;
 
     const settings = { ...getDefaultSettings(), ...activeTerminal.defaults, ...screen.overrides };
-    injectBarrelFilter(settings.curvatureAmount || 0.03);
     currentCrt = createCRTScreen(previewContainer, settings);
     setHeaderFooter(currentCrt, screen, activeTerminal);
+    currentCrt.header.textContent = currentCrt.header.dataset.fullText || "";
+    currentCrt.footer.textContent = currentCrt.footer.dataset.fullText || "";
     renderContent(currentCrt.content, screen.content, {});
     revealAllImages(currentCrt.content, activeTerminal.id, settings);
   }
@@ -293,6 +294,9 @@ export async function initBuilder(container) {
     const screen = activeScreenId ? activeTerminal.screens[activeScreenId] : null;
     const settings = { ...getDefaultSettings(), ...activeTerminal.defaults, ...(screen?.overrides || {}) };
     currentCrt.update(settings);
+    if (currentCrt.renderer) {
+      currentCrt.renderer.setSettings(settings);
+    }
   }
 
   function renderEditor() {
@@ -355,6 +359,22 @@ export async function initBuilder(container) {
       });
       header.appendChild(removeBtn);
       blockEl.appendChild(header);
+
+      // Divider toggle
+      const dividerLabel = document.createElement("label");
+      dividerLabel.style.cssText = "display:flex;align-items:center;gap:6px;font-size:11px;color:#666;margin-bottom:4px;";
+      const dividerCheck = document.createElement("input");
+      dividerCheck.type = "checkbox";
+      dividerCheck.checked = !!block.divider;
+      dividerCheck.addEventListener("change", () => {
+        block.divider = dividerCheck.checked || null;
+        screen.content = content;
+        save();
+        renderPreview();
+      });
+      dividerLabel.appendChild(dividerCheck);
+      dividerLabel.appendChild(document.createTextNode("Line above"));
+      blockEl.appendChild(dividerLabel);
 
       if (block.type === "text") {
         const textarea = document.createElement("textarea");
@@ -453,6 +473,28 @@ export async function initBuilder(container) {
           input.click();
         });
         blockEl.appendChild(uploadBtn);
+
+        const widthRow = document.createElement("div");
+        widthRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:6px;";
+        const widthLabel = document.createElement("label");
+        widthLabel.textContent = "Width (px):";
+        widthLabel.style.cssText = "font-size:11px;color:#666;";
+        const widthInput = document.createElement("input");
+        widthInput.type = "number";
+        widthInput.min = "32";
+        widthInput.max = "1920";
+        widthInput.value = block.width || "";
+        widthInput.placeholder = "native";
+        widthInput.style.cssText = "width:70px;font-size:11px;";
+        widthInput.addEventListener("change", () => {
+          block.width = parseInt(widthInput.value) || null;
+          screen.content = content;
+          save();
+          renderPreview();
+        });
+        widthRow.appendChild(widthLabel);
+        widthRow.appendChild(widthInput);
+        blockEl.appendChild(widthRow);
       } else if (block.type === "menu") {
         const itemsList = document.createElement("div");
         itemsList.style.cssText = "display:flex;flex-direction:column;gap:4px;";

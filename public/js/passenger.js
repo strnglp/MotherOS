@@ -3,7 +3,6 @@ import { createWSClient } from "./ws-client.js";
 import { slowType } from "./slow-type.js";
 import { revealAllImages } from "./image-reveal.js";
 import { preloadAudio, startTypingSound, stopTypingSound, playNavSound } from "./audio.js";
-import { injectBarrelFilter } from "./barrel-distortion.js";
 
 export function initPassenger(container, { room }) {
   preloadAudio();
@@ -21,13 +20,12 @@ export function initPassenger(container, { room }) {
       if (msg.type === "state") {
         terminal = msg.terminal;
         settings = terminal.defaults || {};
-        injectBarrelFilter(settings.curvatureAmount || 0.03);
         crt = createCRTScreen(container, settings);
         crt.screen.classList.add("crt-passenger");
 
         const screen = terminal.screens[msg.currentScreen];
         if (screen) {
-          showScreen(screen);
+          document.fonts.ready.then(() => showScreen(screen));
         }
       }
 
