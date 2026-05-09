@@ -240,7 +240,7 @@ function renderDOMToCanvas(ctx, inner, w, h, settings) {
             drawGlowText(ctx, text, x, y, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
           } else {
             ctx.font = blockFont;
-            drawGlowText(ctx, text, x, y, fg, glow, settings.glowRadius * settings.glowIntensity);
+            drawColoredLine(ctx, line, x, y, fg, glow, settings);
           }
         }
       }
@@ -260,6 +260,52 @@ function renderDOMToCanvas(ctx, inner, w, h, settings) {
     ctx.lineTo(x + r.width, y);
     ctx.stroke();
     drawGlowText(ctx, footerEl.textContent.toUpperCase(), x, y + 4, fg, glow, settings.glowRadius * settings.glowIntensity);
+  }
+}
+
+function drawColoredLine(ctx, lineEl, x, y, fg, glow, settings) {
+  const radius = settings.glowRadius * settings.glowIntensity;
+  const charWidth = ctx.measureText("MMMMMMMMMM").width / 10;
+  let offsetX = 0;
+
+  const alertColor = settings.colorAlert || "#ff3333";
+  const alertGlow = computeGlow(alertColor);
+  const highlightColor = settings.colorHighlight || "#ffb000";
+  const highlightGlow = computeGlow(highlightColor);
+
+  for (const node of lineEl.childNodes) {
+    let text, color, glowCol;
+
+    if (node.nodeType === 3) {
+      text = node.textContent.toUpperCase();
+      color = fg;
+      glowCol = glow;
+    } else if (node.classList?.contains("crt-alert")) {
+      text = node.textContent.toUpperCase();
+      color = alertColor;
+      glowCol = alertGlow;
+    } else if (node.classList?.contains("crt-highlight")) {
+      text = node.textContent.toUpperCase();
+      color = highlightColor;
+      glowCol = highlightGlow;
+    } else {
+      text = node.textContent.toUpperCase();
+      color = fg;
+      glowCol = glow;
+    }
+
+    if (!text) continue;
+
+    if (radius > 0) {
+      ctx.shadowColor = glowCol;
+      ctx.shadowBlur = radius;
+    }
+    ctx.fillStyle = color;
+    for (let i = 0; i < text.length; i++) {
+      ctx.fillText(text[i], x + offsetX, y);
+      offsetX += charWidth;
+    }
+    ctx.shadowBlur = 0;
   }
 }
 
