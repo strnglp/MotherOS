@@ -17,6 +17,10 @@ const wss = new WebSocketServer({ server });
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static(PUBLIC_DIR, { etag: false, lastModified: false, setHeaders: (res) => res.set("Cache-Control", "no-store") }));
 
+// Route all modes to index.html
+app.get("/builder", (req, res) => res.sendFile(join(PUBLIC_DIR, "index.html")));
+app.get("/passenger", (req, res) => res.sendFile(join(PUBLIC_DIR, "index.html")));
+
 // Serve terminal assets as static files
 app.use("/assets/:terminalId", (req, res, next) => {
   const assetsPath = join(DATA_DIR, req.params.terminalId, "assets");

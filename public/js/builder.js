@@ -885,8 +885,8 @@ export async function initBuilder(container) {
     if (!room) return;
 
     const base = window.location.origin;
-    const driverUrl = `${base}/?mode=driver&terminal=${activeTerminal.id}&room=${encodeURIComponent(room)}`;
-    const passengerUrl = `${base}/?mode=passenger&room=${encodeURIComponent(room)}`;
+    const driverUrl = `${base}/?terminal=${activeTerminal.id}&room=${encodeURIComponent(room)}`;
+    const passengerUrl = `${base}/passenger?room=${encodeURIComponent(room)}`;
 
     const dialog = document.createElement("div");
     dialog.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.8);";
