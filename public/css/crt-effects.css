@@ -65,7 +65,7 @@
   font-size: var(--font-size, 18px);
   line-height: 1.4;
   color: var(--fg);
-  text-shadow: 0 0 var(--glow-radius, 8px) var(--glow);
+  text-shadow: var(--text-glow);
   white-space: pre;
   overflow: hidden;
   text-transform: uppercase;
@@ -95,7 +95,7 @@
   font-size: var(--font-size, 18px);
   line-height: 1.4;
   color: var(--fg);
-  text-shadow: 0 0 var(--glow-radius, 8px) var(--glow);
+  text-shadow: var(--text-glow);
   white-space: pre-wrap;
   word-wrap: break-word;
   text-transform: uppercase;
@@ -113,8 +113,8 @@
 }
 
 .crt-highlight {
-  color: var(--highlight, #ffff00);
-  text-shadow: 0 0 var(--glow-radius, 8px) var(--highlight-glow, #808000);
+  color: var(--highlight, #ffb000);
+  text-shadow: 0 0 var(--glow-radius, 8px) var(--highlight-glow, #805800);
 }
 
 .crt-line.navigable {
@@ -155,7 +155,7 @@
   font-size: var(--font-size, 18px);
   line-height: 1.4;
   color: var(--fg);
-  text-shadow: 0 0 var(--glow-radius, 8px) var(--glow);
+  text-shadow: var(--text-glow);
   white-space: pre-wrap;
   text-transform: uppercase;
   margin: 8px 0;

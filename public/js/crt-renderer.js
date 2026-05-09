@@ -58,7 +58,7 @@ export function createCRTScreen(container, settings = {}) {
     colorForeground: "#00ff33",
     colorBackground: "#001a00",
     colorAlert: "#ff3333",
-    colorHighlight: "#ffff00",
+    colorHighlight: "#ffb000",
     glowIntensity: 0.8,
     glowRadius: 8,
     scanlineIntensity: 0.15,
@@ -121,7 +121,10 @@ function applySettings(screen, content, s) {
   style.setProperty("--alert-glow", computeGlow(s.colorAlert || "#ff3333"));
   style.setProperty("--highlight", s.colorHighlight || "#ffff00");
   style.setProperty("--highlight-glow", computeGlow(s.colorHighlight || "#ffff00"));
+  const r = s.glowRadius * s.glowIntensity;
+  const glowVal = computeGlow(s.colorForeground);
   style.setProperty("--glow-radius", `${s.glowRadius}px`);
+  style.setProperty("--text-glow", r > 0 ? `0 0 ${r}px ${glowVal}` : "none");
   style.setProperty("--scanline-intensity", s.scanlineIntensity);
   style.setProperty("--scanline-spacing", `${s.scanlineSpacing}px`);
   style.setProperty("--vignette-intensity", s.vignetteIntensity);

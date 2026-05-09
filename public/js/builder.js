@@ -255,24 +255,25 @@ export async function initBuilder(container) {
     renderSettings();
   }
 
+  let currentCrt = null;
+
   function renderPreview() {
     if (!activeTerminal) return;
 
     if (!activeScreenId) {
-      // Defaults preview
       const settings = { ...getDefaultSettings(), ...activeTerminal.defaults };
       injectBarrelFilter(settings.curvatureAmount || 0.03);
-      const crt = createCRTScreen(previewContainer, settings);
+      currentCrt = createCRTScreen(previewContainer, settings);
       const sampleContent = [
-        { type: "text", value: "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n0123456789 !@#$%^&*()\n\nThe quick brown fox jumps\nover the lazy dog." },
+        { type: "text", value: "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n0123456789 !@#$%^&*()\n\nThe quick brown fox jumps\nover the lazy dog.\n\n*Alert text sample*\n/Highlight text sample/" },
         { type: "menu", id: "sample-menu", items: [
           { label: "Menu Item One", target: "" },
           { label: "Menu Item Two", target: "" },
           { label: "Menu Item Three", target: "" },
         ]},
       ];
-      setHeaderFooter(crt, { header: activeTerminal.defaultHeader || "HEADER PREVIEW", footer: activeTerminal.defaultFooter || "FOOTER PREVIEW" }, activeTerminal);
-      renderContent(crt.content, sampleContent, { selectedLinkId: "sample-menu-1" });
+      setHeaderFooter(currentCrt, { header: activeTerminal.defaultHeader || "HEADER PREVIEW", footer: activeTerminal.defaultFooter || "FOOTER PREVIEW" }, activeTerminal);
+      renderContent(currentCrt.content, sampleContent, { selectedLinkId: "sample-menu-1" });
       return;
     }
 
@@ -281,10 +282,17 @@ export async function initBuilder(container) {
 
     const settings = { ...getDefaultSettings(), ...activeTerminal.defaults, ...screen.overrides };
     injectBarrelFilter(settings.curvatureAmount || 0.03);
-    const crt = createCRTScreen(previewContainer, settings);
-    setHeaderFooter(crt, screen, activeTerminal);
-    renderContent(crt.content, screen.content, {});
-    revealAllImages(crt.content, activeTerminal.id, settings);
+    currentCrt = createCRTScreen(previewContainer, settings);
+    setHeaderFooter(currentCrt, screen, activeTerminal);
+    renderContent(currentCrt.content, screen.content, {});
+    revealAllImages(currentCrt.content, activeTerminal.id, settings);
+  }
+
+  function updatePreviewSettings() {
+    if (!activeTerminal || !currentCrt) return;
+    const screen = activeScreenId ? activeTerminal.screens[activeScreenId] : null;
+    const settings = { ...getDefaultSettings(), ...activeTerminal.defaults, ...(screen?.overrides || {}) };
+    currentCrt.update(settings);
   }
 
   function renderEditor() {
@@ -637,8 +645,8 @@ export async function initBuilder(container) {
         { key: "colorHighlight", label: "Highlight /text/", type: "color" },
       ]},
       { name: "Glow", settings: [
-        { key: "glowIntensity", label: "Intensity", min: 0, max: 2, step: 0.1 },
-        { key: "glowRadius", label: "Radius", min: 0, max: 30, step: 1 },
+        { key: "glowIntensity", label: "Intensity", min: 0, max: 3, step: 0.1 },
+        { key: "glowRadius", label: "Radius", min: 0, max: 40, step: 1 },
       ]},
       { name: "Scanlines", settings: [
         { key: "scanlineIntensity", label: "Intensity", min: 0, max: 1, step: 0.05 },
@@ -692,8 +700,17 @@ export async function initBuilder(container) {
           const input = document.createElement("input");
           input.type = "color";
           input.value = settings[s.key] || getDefaultSettings()[s.key] || "#00ff33";
-          input.addEventListener("input", () => updateSetting(s.key, input.value));
-          row.appendChild(input);
+          const hex = document.createElement("input");
+          hex.type = "text";
+          hex.value = input.value;
+          hex.style.cssText = "width:70px;font-size:11px;";
+          input.addEventListener("input", () => { hex.value = input.value; updateSetting(s.key, input.value); });
+          hex.addEventListener("change", () => { const v = hex.value.startsWith("#") ? hex.value : `#${hex.value}`; input.value = v; hex.value = v; updateSetting(s.key, v); });
+          const colorGroup = document.createElement("span");
+          colorGroup.style.cssText = "display:flex;align-items:center;gap:4px;";
+          colorGroup.appendChild(input);
+          colorGroup.appendChild(hex);
+          row.appendChild(colorGroup);
         } else if (s.type === "checkbox") {
           const input = document.createElement("input");
           input.type = "checkbox";
@@ -780,13 +797,15 @@ export async function initBuilder(container) {
       }
     }
     save();
-    renderPreview();
+    updatePreviewSettings();
   }
 
-  async function save() {
-    if (activeTerminal) {
-      await updateTerminal(activeTerminal.id, activeTerminal);
-    }
+  let saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      if (activeTerminal) updateTerminal(activeTerminal.id, activeTerminal);
+    }, 300);
   }
 
   async function addNewTerminal() {
@@ -940,7 +959,7 @@ function getDefaultSettings() {
     colorForeground: "#00ff33",
     colorBackground: "#001a00",
     colorAlert: "#ff3333",
-    colorHighlight: "#ffff00",
+    colorHighlight: "#ffb000",
     glowIntensity: 0.8,
     glowRadius: 8,
     scanlineIntensity: 0.15,
