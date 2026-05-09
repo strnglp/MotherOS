@@ -1,40 +1,40 @@
 const RESOLUTION_STEPS = [0.01, 0.02, 0.05, 0.08, 0.13, 0.21, 0.34, 0.55, 0.89, 1.0];
 
 export function revealImage(canvas, options = {}) {
-  const { src, revealStyle = "pixelate", revealSpeed = 150, blendMode = "normal", palette = null, terminalId = null } = options;
+  const { src, revealStyle = "pixelate", revealSpeed = 150, blendMode = "normal", terminalId = null, fgColor = null, bgColor = null, glowColor = null } = options;
 
   canvas.style.mixBlendMode = blendMode;
 
   const img = new Image();
   let imgSrc;
+  if (!src) { return Promise.resolve(); }
   if (src.startsWith("http") || src.startsWith("/")) {
     imgSrc = src;
   } else {
     const filename = src.replace(/^assets\//, "");
     imgSrc = terminalId ? `/assets/${terminalId}/${filename}` : src;
   }
-  img.crossOrigin = "anonymous";
 
   return new Promise((resolve) => {
     img.onload = () => {
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
       if (revealStyle === "instant") {
         ctx.drawImage(img, 0, 0);
-        if (palette) applyPalette(ctx, canvas.width, canvas.height, palette);
+        applyPalette(ctx, canvas.width, canvas.height, fgColor, bgColor, glowColor);
         resolve();
         return;
       }
 
       if (revealStyle === "scanline") {
-        animateScanline(ctx, img, canvas.width, canvas.height, revealSpeed, palette, resolve);
+        animateScanline(ctx, img, canvas.width, canvas.height, revealSpeed, fgColor, bgColor, glowColor, resolve);
         return;
       }
 
       // pixelate (default)
-      animatePixelate(ctx, img, canvas.width, canvas.height, revealSpeed, palette, resolve);
+      animatePixelate(ctx, img, canvas.width, canvas.height, revealSpeed, fgColor, bgColor, glowColor, resolve);
     };
 
     img.onerror = () => resolve();
@@ -42,7 +42,7 @@ export function revealImage(canvas, options = {}) {
   });
 }
 
-function animatePixelate(ctx, img, w, h, speed, palette, resolve) {
+function animatePixelate(ctx, img, w, h, speed, fgColor, bgColor, glowColor, resolve) {
   let step = 0;
 
   function tick() {
@@ -58,14 +58,13 @@ function animatePixelate(ctx, img, w, h, speed, palette, resolve) {
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, w, h);
 
-    // Draw scaled down to offscreen, then scale back up
     const offscreen = new OffscreenCanvas(sw, sh);
     const offCtx = offscreen.getContext("2d");
     offCtx.drawImage(img, 0, 0, sw, sh);
 
     ctx.drawImage(offscreen, 0, 0, sw, sh, 0, 0, w, h);
 
-    if (palette) applyPalette(ctx, w, h, palette);
+    applyPalette(ctx, w, h, fgColor, bgColor, glowColor);
 
     step++;
     setTimeout(tick, speed);
@@ -74,7 +73,7 @@ function animatePixelate(ctx, img, w, h, speed, palette, resolve) {
   tick();
 }
 
-function animateScanline(ctx, img, w, h, speed, palette, resolve) {
+function animateScanline(ctx, img, w, h, speed, fgColor, bgColor, glowColor, resolve) {
   const linesPerTick = Math.max(1, Math.floor(h / 60));
   let y = 0;
 
@@ -84,7 +83,7 @@ function animateScanline(ctx, img, w, h, speed, palette, resolve) {
 
   function tick() {
     if (y >= h) {
-      if (palette) applyPalette(ctx, w, h, palette);
+      applyPalette(ctx, w, h, fgColor, bgColor, glowColor);
       resolve();
       return;
     }
@@ -102,63 +101,68 @@ function animateScanline(ctx, img, w, h, speed, palette, resolve) {
   tick();
 }
 
-function applyPalette(ctx, w, h, palette) {
-  const colors = getPaletteColors(palette);
-  if (!colors) return;
+function applyPalette(ctx, w, h, fgColor, bgColor, glowColor) {
+  try {
+    const fg = parseColor(fgColor);
+    const bg = parseColor(bgColor);
+    const glow = parseColor(glowColor || fgColor);
 
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const data = imageData.data;
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
 
-  for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] === 0) continue;
-    const closest = findClosestColor(data[i], data[i + 1], data[i + 2], colors);
-    data[i] = closest[0];
-    data[i + 1] = closest[1];
-    data[i + 2] = closest[2];
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-}
-
-function getPaletteColors(palette) {
-  if (palette === "phosphor") {
-    return [
-      [0, 40, 0],
-      [0, 80, 0],
-      [0, 128, 20],
-      [0, 200, 40],
-      [0, 255, 51],
-      [100, 255, 120],
-    ];
-  }
-  if (palette === "amber") {
-    return [
-      [40, 20, 0],
-      [80, 50, 0],
-      [160, 100, 0],
-      [220, 160, 0],
-      [255, 200, 0],
-      [255, 230, 100],
-    ];
-  }
-  return null;
-}
-
-function findClosestColor(r, g, b, colors) {
-  let minDist = Infinity;
-  let closest = colors[0];
-  for (const c of colors) {
-    const dist = (r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2;
-    if (dist < minDist) {
-      minDist = dist;
-      closest = c;
+    let maxBri = 0;
+    let minBri = 765;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] === 0) continue;
+      const sum = data[i] + data[i + 1] + data[i + 2];
+      if (sum > maxBri) maxBri = sum;
+      if (sum < minBri) minBri = sum;
     }
+    const range = maxBri - minBri || 1;
+
+    // Pixels below 5% brightness = bg, rest blend glow→fg
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] === 0) continue;
+      const raw = (data[i] + data[i + 1] + data[i + 2] - minBri) / range;
+      if (raw <= 0.05) {
+        data[i] = bg[0];
+        data[i + 1] = bg[1];
+        data[i + 2] = bg[2];
+      } else {
+        const t = (raw - 0.05) / 0.95;
+        // Bias toward fg
+        const lifted = 0.75 * Math.sqrt(Math.sqrt(t)) + 0.25 * t;
+        data[i] = glow[0] + (fg[0] - glow[0]) * lifted;
+        data[i + 1] = glow[1] + (fg[1] - glow[1]) * lifted;
+        data[i + 2] = glow[2] + (fg[2] - glow[2]) * lifted;
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  } catch (e) {
+    console.warn("Palette apply failed:", e.message);
   }
-  return closest;
 }
 
-export function revealAllImages(container, terminalId) {
+function parseColor(hex) {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.substring(0, 2), 16),
+    parseInt(h.substring(2, 4), 16),
+    parseInt(h.substring(4, 6), 16),
+  ];
+}
+
+export function revealAllImages(container, terminalId, settings = {}) {
   const canvases = container.querySelectorAll(".crt-image-canvas");
+  // Read actual colors from CSS custom properties as ground truth
+  const screen = container.closest(".crt-screen");
+  const computedFg = screen ? getComputedStyle(screen).getPropertyValue("--fg").trim() : null;
+  const computedBg = screen ? getComputedStyle(screen).getPropertyValue("--bg").trim() : null;
+  const fgColor = settings.colorForeground || computedFg || "#00ff33";
+  const bgColor = settings.colorBackground || computedBg || "#001a00";
+  const glowColor = settings.colorGlow || fgColor;
+
   const promises = [];
   for (const canvas of canvases) {
     promises.push(
@@ -167,8 +171,10 @@ export function revealAllImages(container, terminalId) {
         revealStyle: canvas.dataset.revealStyle,
         revealSpeed: Number(canvas.dataset.revealSpeed) || 150,
         blendMode: canvas.dataset.blendMode,
-        palette: canvas.dataset.palette || null,
         terminalId,
+        fgColor,
+        bgColor,
+        glowColor,
       })
     );
   }

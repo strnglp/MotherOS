@@ -68,7 +68,7 @@ export function initDriver(container, { terminal: terminalId, room }) {
     cancelTyping = slowType(crt.content, screen.content, effectiveSettings, () => {
       stopTypingSound();
     });
-    revealAllImages(crt.content, terminal.id);
+    revealAllImages(crt.content, terminal.id, effectiveSettings);
 
     if (broadcast) {
       ws.send({ type: "navigate", screen: screenId });

@@ -43,7 +43,7 @@ export function initPassenger(container, { room }) {
         cancelTyping = slowType(crt.content, msg.content, effectiveSettings, () => {
           stopTypingSound();
         });
-        revealAllImages(crt.content, terminal?.id);
+        revealAllImages(crt.content, terminal?.id, effectiveSettings);
       }
 
       if (msg.type === "scroll") {
@@ -65,6 +65,6 @@ export function initPassenger(container, { room }) {
     cancelTyping = slowType(crt.content, screen.content, effectiveSettings, () => {
       stopTypingSound();
     });
-    revealAllImages(crt.content, terminal?.id);
+    revealAllImages(crt.content, terminal?.id, effectiveSettings);
   }
 }

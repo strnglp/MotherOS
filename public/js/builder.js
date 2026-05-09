@@ -165,7 +165,7 @@ export async function initBuilder(container) {
     const crt = createCRTScreen(previewContainer, settings);
     setHeaderFooter(crt, screen, activeTerminal);
     renderContent(crt.content, screen.content, {});
-    revealAllImages(crt.content, activeTerminal.id);
+    revealAllImages(crt.content, activeTerminal.id, settings);
   }
 
   function renderEditor() {

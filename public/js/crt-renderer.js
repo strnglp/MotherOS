@@ -64,6 +64,7 @@ function applySettings(screen, content, s) {
   style.setProperty("--bg", s.colorBackground);
   style.setProperty("--glow", s.colorGlow);
   style.setProperty("--glow-radius", `${s.glowRadius}px`);
+  style.setProperty("--glow-opacity", `${Math.round(s.glowIntensity * 50)}%`);
   style.setProperty("--scanline-intensity", s.scanlineIntensity);
   style.setProperty("--scanline-spacing", `${s.scanlineSpacing}px`);
   style.setProperty("--vignette-intensity", s.vignetteIntensity);
@@ -144,7 +145,6 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
       canvas.dataset.revealStyle = block.revealStyle || "pixelate";
       canvas.dataset.revealSpeed = block.revealSpeed || 150;
       canvas.dataset.blendMode = block.blendMode || "normal";
-      if (block.palette) canvas.dataset.palette = block.palette;
       contentEl.appendChild(canvas);
     }
   }
