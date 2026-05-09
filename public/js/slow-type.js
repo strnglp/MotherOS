@@ -15,6 +15,8 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
     contentBlocks = [{ type: "text", value: contentBlocks }];
   }
 
+  const typeable = contentBlocks.filter((b) => b.type === "text" || b.type === "menu");
+
   // Build segments from all elements that need revealing: header, content blocks, dividers, footer
   const segments = [];
   const inner = contentEl.closest(".crt-inner");
@@ -25,16 +27,25 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
     segments.push({ type: "header", el: headerEl, text: headerEl.dataset.fullText });
   }
 
-  // Content children: dividers, pre (text/menu), images
+  // Content children: dividers, pre (text/menu), images, footer
+  let blockIdx = 0;
   for (const child of contentEl.children) {
     if (child.classList.contains("crt-divider")) {
       segments.push({ type: "divider", el: child });
     } else if (child.classList.contains("crt-footer")) {
       segments.push({ type: "footer", el: child, text: child.dataset.fullText || child.textContent });
     } else if (child.tagName === "PRE") {
-      const lines = child.querySelectorAll(".crt-line");
-      const text = Array.from(lines).map((l) => l.innerText || " ").join("\n");
-      segments.push({ type: "text", el: child, pre: child, text, lines });
+      const block = typeable[blockIdx];
+      let text;
+      if (block?.type === "text") {
+        text = block.value;
+      } else if (block?.type === "menu") {
+        text = block.items.map((item) => item.label).join("\n");
+      } else {
+        text = Array.from(child.querySelectorAll(".crt-line")).map((l) => l.innerText || " ").join("\n");
+      }
+      segments.push({ type: "text", el: child, pre: child, text });
+      blockIdx++;
     }
   }
 
@@ -117,6 +128,64 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
 
 const colorizeCache = new Map();
 
+function partialColorize(fullLine, rawCharsVisible) {
+  // Parse the full line to find paired delimiters, then reveal chars without showing delimiters
+  const tokens = [];
+  let i = 0;
+  while (i < fullLine.length) {
+    if (fullLine[i] === "*") {
+      const end = fullLine.indexOf("*", i + 1);
+      if (end !== -1) {
+        tokens.push({ type: "alert", text: fullLine.substring(i + 1, end), rawStart: i, rawEnd: end + 1 });
+        i = end + 1;
+        continue;
+      }
+    }
+    if (fullLine[i] === "/") {
+      const end = fullLine.indexOf("/", i + 1);
+      if (end !== -1) {
+        tokens.push({ type: "highlight", text: fullLine.substring(i + 1, end), rawStart: i, rawEnd: end + 1 });
+        i = end + 1;
+        continue;
+      }
+    }
+    // Find next delimiter or end
+    let next = fullLine.length;
+    const nextStar = fullLine.indexOf("*", i);
+    const nextSlash = fullLine.indexOf("/", i);
+    if (nextStar !== -1 && nextStar < next) next = nextStar;
+    if (nextSlash !== -1 && nextSlash < next) next = nextSlash;
+    tokens.push({ type: "normal", text: fullLine.substring(i, next), rawStart: i, rawEnd: next });
+    i = next;
+  }
+
+  // Build output up to rawCharsVisible
+  let html = "";
+  for (const token of tokens) {
+    if (token.rawStart >= rawCharsVisible) break;
+    const rawVisible = Math.min(rawCharsVisible, token.rawEnd) - token.rawStart;
+    // How many content chars are visible (exclude delimiters)
+    let contentVisible;
+    if (token.type === "normal") {
+      contentVisible = rawVisible;
+    } else {
+      // Delimiters are 1 char each at start and end
+      contentVisible = Math.max(0, rawVisible - 1); // skip opening delimiter
+      contentVisible = Math.min(contentVisible, token.text.length); // cap at content length
+    }
+    if (contentVisible <= 0) continue;
+    const visibleText = escapeHtml(token.text.substring(0, contentVisible));
+    if (token.type === "alert") {
+      html += `<span class="crt-alert">${visibleText}</span>`;
+    } else if (token.type === "highlight") {
+      html += `<span class="crt-highlight">${visibleText}</span>`;
+    } else {
+      html += visibleText;
+    }
+  }
+  return html;
+}
+
 function cachedColorize(text) {
   if (!text) return " ";
   if (colorizeCache.has(text)) return colorizeCache.get(text);
@@ -142,7 +211,8 @@ function updatePreVisibility(pre, fullText, visibleChars) {
       spans[i].innerHTML = cachedColorize(lineText);
       spans[i].style.visibility = "visible";
     } else {
-      spans[i].textContent = lineText.substring(0, visibleChars - lineStart);
+      const rawPartial = lineText.substring(0, visibleChars - lineStart);
+      spans[i].innerHTML = partialColorize(lineText, rawPartial.length);
       spans[i].style.visibility = "visible";
     }
 

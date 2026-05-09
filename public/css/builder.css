@@ -1,6 +1,6 @@
 .builder-layout {
   display: grid;
-  grid-template-columns: 220px 1fr 280px;
+  grid-template-columns: 220px 1fr 360px;
   grid-template-rows: 48px 1fr;
   height: 100%;
   gap: 0;
