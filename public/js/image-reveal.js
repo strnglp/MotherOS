@@ -144,46 +144,23 @@ function animateScanline(ctx, img, w, h, speed, fgColor, bgColor, glowColor, res
 }
 
 function applyPalette(ctx, w, h, fgColor, bgColor, glowColor) {
-  try {
-    const fg = parseColor(fgColor);
-    const bg = parseColor(bgColor);
-    const glow = parseColor(glowColor || fgColor);
+  const fg = parseColor(fgColor);
+  const bg = parseColor(bgColor);
 
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const data = imageData.data;
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
 
-    let maxBri = 0;
-    let minBri = 765;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] === 0) continue;
-      const sum = data[i] + data[i + 1] + data[i + 2];
-      if (sum > maxBri) maxBri = sum;
-      if (sum < minBri) minBri = sum;
-    }
-    const range = maxBri - minBri || 1;
-
-    // Pixels below 5% brightness = bg, rest blend glow→fg
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] === 0) continue;
-      const raw = (data[i] + data[i + 1] + data[i + 2] - minBri) / range;
-      if (raw <= 0.05) {
-        data[i] = bg[0];
-        data[i + 1] = bg[1];
-        data[i + 2] = bg[2];
-      } else {
-        const t = (raw - 0.05) / 0.95;
-        // Bias toward fg
-        const lifted = 0.75 * Math.sqrt(Math.sqrt(t)) + 0.25 * t;
-        data[i] = glow[0] + (fg[0] - glow[0]) * lifted;
-        data[i + 1] = glow[1] + (fg[1] - glow[1]) * lifted;
-        data[i + 2] = glow[2] + (fg[2] - glow[2]) * lifted;
-      }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-  } catch (e) {
-    console.warn("Palette apply failed:", e.message);
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue;
+    const r = data[i] / 255;
+    const g = data[i + 1] / 255;
+    const b = data[i + 2] / 255;
+    data[i] = bg[0] + (fg[0] - bg[0]) * r;
+    data[i + 1] = bg[1] + (fg[1] - bg[1]) * g;
+    data[i + 2] = bg[2] + (fg[2] - bg[2]) * b;
   }
+
+  ctx.putImageData(imageData, 0, 0);
 }
 
 function parseColor(hex) {
