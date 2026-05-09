@@ -1,0 +1,53 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: monospace;
+  color: #00ff33;
+}
+
+#app {
+  height: 100%;
+  width: 100%;
+}
+
+:root {
+  --fg: #00ff33;
+  --bg: #001a00;
+  --glow: #00ff33;
+  --font-size: 18px;
+}
+
+button {
+  font-family: monospace;
+  cursor: pointer;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--fg);
+  padding: 4px 12px;
+  font-size: 14px;
+}
+
+button:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+input, textarea, select {
+  font-family: monospace;
+  background: #000;
+  color: var(--fg);
+  border: 1px solid var(--fg);
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: 1px solid var(--glow);
+}

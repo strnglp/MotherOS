@@ -1,0 +1,27 @@
+{
+  "name": "crt-terminal",
+  "version": "0.1.0",
+  "description": "Multiplayer shared CRT terminal prop for FoundryVTT",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/",
+    "lint": "npx @biomejs/biome check .",
+    "format": "npx @biomejs/biome format --write ."
+  },
+  "keywords": [
+    "crt",
+    "terminal",
+    "foundryvtt",
+    "prop"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.14"
+  }
+}
