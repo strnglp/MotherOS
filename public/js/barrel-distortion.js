@@ -48,20 +48,23 @@ void main() {
   // Sample source texture
   vec3 color = texture2D(u_texture, uv).rgb;
 
-  // Glow/bloom: sample neighbors and add blurred version
+  // Glow/bloom: multi-sample box blur at varying distances
   if (u_glowIntensity > 0.0) {
     vec3 bloom = vec3(0.0);
-    float radius = u_glowRadius * u_glowIntensity / u_resolution.x;
-    bloom += texture2D(u_texture, uv + vec2(radius, 0.0)).rgb;
-    bloom += texture2D(u_texture, uv + vec2(-radius, 0.0)).rgb;
-    bloom += texture2D(u_texture, uv + vec2(0.0, radius)).rgb;
-    bloom += texture2D(u_texture, uv + vec2(0.0, -radius)).rgb;
-    bloom += texture2D(u_texture, uv + vec2(radius * 0.7, radius * 0.7)).rgb;
-    bloom += texture2D(u_texture, uv + vec2(-radius * 0.7, radius * 0.7)).rgb;
-    bloom += texture2D(u_texture, uv + vec2(radius * 0.7, -radius * 0.7)).rgb;
-    bloom += texture2D(u_texture, uv + vec2(-radius * 0.7, -radius * 0.7)).rgb;
-    bloom /= 8.0;
-    color += bloom * u_glowIntensity * 0.4;
+    float px = u_glowRadius / u_resolution.x;
+    float py = u_glowRadius / u_resolution.y;
+    float total = 0.0;
+    for (float x = -3.0; x <= 3.0; x += 1.0) {
+      for (float y = -3.0; y <= 3.0; y += 1.0) {
+        float d = length(vec2(x, y));
+        if (d > 3.0) continue;
+        float weight = 1.0 - d / 3.5;
+        bloom += texture2D(u_texture, uv + vec2(x * px, y * py)).rgb * weight;
+        total += weight;
+      }
+    }
+    bloom /= total;
+    color += bloom * u_glowIntensity * 0.5;
   }
 
   // Scanlines
