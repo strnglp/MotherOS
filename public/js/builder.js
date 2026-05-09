@@ -279,7 +279,7 @@ export async function initBuilder(container) {
     const screen = activeTerminal.screens[activeScreenId];
     if (!screen) return;
 
-    const settings = { ...activeTerminal.defaults, ...screen.overrides };
+    const settings = { ...getDefaultSettings(), ...activeTerminal.defaults, ...screen.overrides };
     injectBarrelFilter(settings.curvatureAmount || 0.03);
     const crt = createCRTScreen(previewContainer, settings);
     setHeaderFooter(crt, screen, activeTerminal);
@@ -633,7 +633,8 @@ export async function initBuilder(container) {
       { name: "Color", settings: [
         { key: "colorForeground", label: "Foreground", type: "color" },
         { key: "colorBackground", label: "Background", type: "color" },
-        { key: "colorGlow", label: "Glow", type: "color" },
+        { key: "colorAlert", label: "Alert *text*", type: "color" },
+        { key: "colorHighlight", label: "Highlight /text/", type: "color" },
       ]},
       { name: "Glow", settings: [
         { key: "glowIntensity", label: "Intensity", min: 0, max: 2, step: 0.1 },
@@ -690,7 +691,7 @@ export async function initBuilder(container) {
         if (s.type === "color") {
           const input = document.createElement("input");
           input.type = "color";
-          input.value = settings[s.key] || "#00ff33";
+          input.value = settings[s.key] || getDefaultSettings()[s.key] || "#00ff33";
           input.addEventListener("input", () => updateSetting(s.key, input.value));
           row.appendChild(input);
         } else if (s.type === "checkbox") {
@@ -938,7 +939,8 @@ function getDefaultSettings() {
   return {
     colorForeground: "#00ff33",
     colorBackground: "#001a00",
-    colorGlow: "#00ff33",
+    colorAlert: "#ff3333",
+    colorHighlight: "#ffff00",
     glowIntensity: 0.8,
     glowRadius: 8,
     scanlineIntensity: 0.15,

@@ -1,5 +1,47 @@
 const RESOLUTION_STEPS = [0.01, 0.02, 0.05, 0.08, 0.13, 0.21, 0.34, 0.55, 0.89, 1.0];
 
+function computeGlowHex(hex) {
+  const h = (hex || "#00ff33").replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16) / 255;
+  const g = parseInt(h.substring(2, 4), 16) / 255;
+  const b = parseInt(h.substring(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let hue, sat, lit = (max + min) / 2;
+
+  if (max === min) {
+    hue = sat = 0;
+  } else {
+    const d = max - min;
+    sat = lit > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) hue = ((b - r) / d + 2) / 6;
+    else hue = ((r - g) / d + 4) / 6;
+  }
+
+  const shiftedHue = (hue + 30 / 360) % 1.0;
+  const shiftedLit = lit * 0.4;
+  const shiftedSat = Math.min(1, sat * 1.2);
+
+  const hsl2rgb = (h2, s2, l2) => {
+    if (s2 === 0) return [l2, l2, l2];
+    const q = l2 < 0.5 ? l2 * (1 + s2) : l2 + s2 - l2 * s2;
+    const p2 = 2 * l2 - q;
+    const hue2rgb = (t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p2 + (q - p2) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p2 + (q - p2) * (2/3 - t) * 6;
+      return p2;
+    };
+    return [hue2rgb(h2 + 1/3), hue2rgb(h2), hue2rgb(h2 - 1/3)];
+  };
+
+  const [ro, go, bo] = hsl2rgb(shiftedHue, shiftedSat, shiftedLit);
+  return `#${Math.round(ro * 255).toString(16).padStart(2, "0")}${Math.round(go * 255).toString(16).padStart(2, "0")}${Math.round(bo * 255).toString(16).padStart(2, "0")}`;
+}
+
 export function revealImage(canvas, options = {}) {
   const { src, revealStyle = "pixelate", revealSpeed = 150, blendMode = "normal", terminalId = null, fgColor = null, bgColor = null, glowColor = null } = options;
 
@@ -161,7 +203,7 @@ export function revealAllImages(container, terminalId, settings = {}) {
   const computedBg = screen ? getComputedStyle(screen).getPropertyValue("--bg").trim() : null;
   const fgColor = settings.colorForeground || computedFg || "#00ff33";
   const bgColor = settings.colorBackground || computedBg || "#001a00";
-  const glowColor = settings.colorGlow || fgColor;
+  const glowColor = computeGlowHex(fgColor);
 
   const promises = [];
   for (const canvas of canvases) {

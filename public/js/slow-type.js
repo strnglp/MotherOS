@@ -1,3 +1,13 @@
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function colorize(text) {
+  return escapeHtml(text)
+    .replace(/\*([^*]+)\*/g, '<span class="crt-alert">$1</span>')
+    .replace(/\/([^/]+)\//g, '<span class="crt-highlight">$1</span>');
+}
+
 export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
   const { slowTypeSpeed = 0.03, slowTypeBatchSize = 5 } = settings;
 
@@ -65,6 +75,16 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
   };
 }
 
+const colorizeCache = new Map();
+
+function cachedColorize(text) {
+  if (!text) return " ";
+  if (colorizeCache.has(text)) return colorizeCache.get(text);
+  const result = colorize(text);
+  colorizeCache.set(text, result);
+  return result;
+}
+
 function updateVisibility(pre, fullText, visibleChars) {
   const lines = fullText.split("\n");
   const spans = pre.querySelectorAll(".crt-line");
@@ -79,9 +99,10 @@ function updateVisibility(pre, fullText, visibleChars) {
       spans[i].textContent = "";
       spans[i].style.visibility = "hidden";
     } else if (lineEnd <= visibleChars) {
-      spans[i].textContent = lineText || " ";
+      spans[i].innerHTML = cachedColorize(lineText);
       spans[i].style.visibility = "visible";
     } else {
+      // Partial line — use textContent (no colorize, avoids broken tags)
       spans[i].textContent = lineText.substring(0, visibleChars - lineStart);
       spans[i].style.visibility = "visible";
     }

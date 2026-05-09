@@ -1,4 +1,4 @@
-import { createCRTScreen, renderContent, setHeaderFooter } from "./crt-renderer.js";
+import { createCRTScreen, renderContent, setHeaderFooter, getAllLinks } from "./crt-renderer.js";
 import { createWSClient } from "./ws-client.js";
 import { slowType } from "./slow-type.js";
 import { revealAllImages } from "./image-reveal.js";
@@ -32,11 +32,14 @@ export function initPassenger(container, { room }) {
 
       if (msg.type === "navigate") {
         if (!crt) return;
+        const screen = terminal.screens[msg.screen];
         const effectiveSettings = { ...settings, ...(msg.overrides || {}) };
         crt.update(effectiveSettings);
+        if (screen) setHeaderFooter(crt, screen, terminal);
         playNavSound(effectiveSettings);
 
-        renderContent(crt.content, msg.content, {});
+        const links = getAllLinks(msg.content);
+        renderContent(crt.content, msg.content, { selectedLinkId: links[0]?.id });
 
         if (cancelTyping) cancelTyping();
         startTypingSound(effectiveSettings);
@@ -44,6 +47,20 @@ export function initPassenger(container, { room }) {
           stopTypingSound();
         });
         revealAllImages(crt.content, terminal?.id, effectiveSettings);
+      }
+
+      if (msg.type === "skip") {
+        if (cancelTyping) cancelTyping();
+        cancelTyping = null;
+        stopTypingSound();
+      }
+
+      if (msg.type === "select") {
+        if (!crt) return;
+        const navigables = crt.content.querySelectorAll(".crt-line.navigable");
+        navigables.forEach((el) => el.classList.remove("selected"));
+        const target = crt.content.querySelector(`[data-link-id="${msg.linkId}"]`);
+        if (target) target.classList.add("selected");
       }
 
       if (msg.type === "scroll") {
@@ -57,8 +74,10 @@ export function initPassenger(container, { room }) {
   function showScreen(screen) {
     const effectiveSettings = { ...settings, ...screen.overrides };
     crt.update(effectiveSettings);
-    setHeaderFooter(crt, screen, terminal);
-    renderContent(crt.content, screen.content, {});
+    setHeaderFooter(crt, { header: screen.header, footer: screen.footer }, terminal);
+    crt.content.classList.add("keyboard-active");
+    const links = getAllLinks(screen.content);
+    renderContent(crt.content, screen.content, { selectedLinkId: links[0]?.id });
 
     if (cancelTyping) cancelTyping();
     startTypingSound(effectiveSettings);

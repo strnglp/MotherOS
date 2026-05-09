@@ -1,10 +1,64 @@
 import { createNoiseCanvas } from "./barrel-distortion.js";
 
+function computeGlow(hex) {
+  const h = (hex || "#00ff33").replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16) / 255;
+  const g = parseInt(h.substring(2, 4), 16) / 255;
+  const b = parseInt(h.substring(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let hue, sat, lit = (max + min) / 2;
+
+  if (max === min) {
+    hue = sat = 0;
+  } else {
+    const d = max - min;
+    sat = lit > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) hue = ((b - r) / d + 2) / 6;
+    else hue = ((r - g) / d + 4) / 6;
+  }
+
+  // Shift hue 30deg, darken to 40% lightness, boost saturation
+  const shiftedHue = (hue + 30 / 360) % 1.0;
+  const shiftedLit = lit * 0.4;
+  const shiftedSat = Math.min(1, sat * 1.2);
+
+  const hsl2rgb = (h2, s2, l2) => {
+    if (s2 === 0) return [l2, l2, l2];
+    const q = l2 < 0.5 ? l2 * (1 + s2) : l2 + s2 - l2 * s2;
+    const p = 2 * l2 - q;
+    const hue2rgb = (t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    return [hue2rgb(h2 + 1/3), hue2rgb(h2), hue2rgb(h2 - 1/3)];
+  };
+
+  const [ro, go, bo] = hsl2rgb(shiftedHue, shiftedSat, shiftedLit);
+  return `#${Math.round(ro * 255).toString(16).padStart(2, "0")}${Math.round(go * 255).toString(16).padStart(2, "0")}${Math.round(bo * 255).toString(16).padStart(2, "0")}`;
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function colorize(text) {
+  return escapeHtml(text)
+    .replace(/\*([^*]+)\*/g, '<span class="crt-alert">$1</span>')
+    .replace(/\/([^/]+)\//g, '<span class="crt-highlight">$1</span>');
+}
+
 export function createCRTScreen(container, settings = {}) {
   const defaults = {
     colorForeground: "#00ff33",
     colorBackground: "#001a00",
-    colorGlow: "#00ff33",
+    colorAlert: "#ff3333",
+    colorHighlight: "#ffff00",
     glowIntensity: 0.8,
     glowRadius: 8,
     scanlineIntensity: 0.15,
@@ -62,9 +116,12 @@ function applySettings(screen, content, s) {
   const style = screen.style;
   style.setProperty("--fg", s.colorForeground);
   style.setProperty("--bg", s.colorBackground);
-  style.setProperty("--glow", s.colorGlow);
+  style.setProperty("--glow", computeGlow(s.colorForeground));
+  style.setProperty("--alert", s.colorAlert || "#ff3333");
+  style.setProperty("--alert-glow", computeGlow(s.colorAlert || "#ff3333"));
+  style.setProperty("--highlight", s.colorHighlight || "#ffff00");
+  style.setProperty("--highlight-glow", computeGlow(s.colorHighlight || "#ffff00"));
   style.setProperty("--glow-radius", `${s.glowRadius}px`);
-  style.setProperty("--glow-opacity", `${Math.round(s.glowIntensity * 50)}%`);
   style.setProperty("--scanline-intensity", s.scanlineIntensity);
   style.setProperty("--scanline-spacing", `${s.scanlineSpacing}px`);
   style.setProperty("--vignette-intensity", s.vignetteIntensity);
@@ -87,7 +144,7 @@ function applySettings(screen, content, s) {
 
 export function renderContent(contentEl, contentBlocks, options = {}) {
   contentEl.innerHTML = "";
-  const { selectedLinkId, onLinkClick } = options;
+  const { selectedLinkId, onLinkClick, onLinkHover } = options;
 
   if (typeof contentBlocks === "string") {
     contentBlocks = [{ type: "text", value: contentBlocks }];
@@ -102,8 +159,12 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
       for (let i = 0; i < lines.length; i++) {
         const span = document.createElement("span");
         span.className = "crt-line";
-        span.textContent = lines[i] || " ";
-        if (!lines[i]) span.style.height = "1.4em";
+        if (!lines[i]) {
+          span.textContent = " ";
+          span.style.height = "1.4em";
+        } else {
+          span.innerHTML = colorize(lines[i]);
+        }
 
         const link = block.links?.find((l) => l.line === i);
         if (link) {
@@ -115,6 +176,9 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
           }
           if (onLinkClick) {
             span.addEventListener("click", () => onLinkClick(link));
+          }
+          if (onLinkHover) {
+            span.addEventListener("mouseenter", () => onLinkHover(link));
           }
         }
         pre.appendChild(span);
@@ -128,7 +192,7 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
         const item = block.items[i];
         const span = document.createElement("span");
         span.className = "crt-line crt-menu-item navigable";
-        span.textContent = item.label;
+        span.innerHTML = colorize(item.label);
         span.dataset.linkId = `${block.id || "menu"}-${i}`;
         span.dataset.target = item.target;
         if (span.dataset.linkId === selectedLinkId) {
@@ -136,6 +200,9 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
         }
         if (onLinkClick) {
           span.addEventListener("click", () => onLinkClick({ id: span.dataset.linkId, target: item.target }));
+        }
+        if (onLinkHover) {
+          span.addEventListener("mouseenter", () => onLinkHover({ id: span.dataset.linkId, target: item.target }));
         }
         nav.appendChild(span);
       }

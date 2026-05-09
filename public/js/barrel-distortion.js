@@ -35,29 +35,21 @@ function createDisplacementMap() {
 
 export function createNoiseCanvas() {
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = 128;
+  canvas.height = 128;
   const ctx = canvas.getContext("2d");
 
-  let animFrame;
-
-  function drawNoise() {
-    const imageData = ctx.createImageData(256, 256);
-    const data = imageData.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const v = Math.random() * 255;
-      data[i] = v;
-      data[i + 1] = v;
-      data[i + 2] = v;
-      data[i + 3] = 40;
-    }
-    ctx.putImageData(imageData, 0, 0);
-    animFrame = requestAnimationFrame(drawNoise);
+  const imageData = ctx.createImageData(128, 128);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const v = Math.random() * 255;
+    data[i] = v;
+    data[i + 1] = v;
+    data[i + 2] = v;
+    data[i + 3] = 40;
   }
+  ctx.putImageData(imageData, 0, 0);
 
-  drawNoise();
-
-  canvas.destroy = () => cancelAnimationFrame(animFrame);
   return canvas;
 }
 

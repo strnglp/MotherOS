@@ -65,9 +65,7 @@
   font-size: var(--font-size, 18px);
   line-height: 1.4;
   color: var(--fg);
-  text-shadow:
-    0 0 var(--glow-radius, 8px) var(--glow),
-    0 0 calc(var(--glow-radius, 8px) * 2) color-mix(in srgb, var(--glow) 40%, transparent);
+  text-shadow: 0 0 var(--glow-radius, 8px) var(--glow);
   white-space: pre;
   overflow: hidden;
   text-transform: uppercase;
@@ -97,9 +95,7 @@
   font-size: var(--font-size, 18px);
   line-height: 1.4;
   color: var(--fg);
-  text-shadow:
-    0 0 var(--glow-radius, 8px) var(--glow),
-    0 0 calc(var(--glow-radius, 8px) * 2) color-mix(in srgb, var(--glow) 40%, transparent);
+  text-shadow: 0 0 var(--glow-radius, 8px) var(--glow);
   white-space: pre-wrap;
   word-wrap: break-word;
   text-transform: uppercase;
@@ -109,6 +105,16 @@
   display: block;
   padding: 0 4px;
   position: relative;
+}
+
+.crt-alert {
+  color: var(--alert, #ff3333);
+  text-shadow: 0 0 var(--glow-radius, 8px) var(--alert-glow, #801a1a);
+}
+
+.crt-highlight {
+  color: var(--highlight, #ffff00);
+  text-shadow: 0 0 var(--glow-radius, 8px) var(--highlight-glow, #808000);
 }
 
 .crt-line.navigable {
@@ -121,26 +127,16 @@
   text-shadow: none;
 }
 
-.keyboard-active .crt-line.navigable:hover {
-  background: transparent;
-  color: var(--fg);
-  text-shadow:
-    0 0 var(--glow-radius, 8px) var(--glow),
-    0 0 calc(var(--glow-radius, 8px) * 2) color-mix(in srgb, var(--glow) 40%, transparent);
-}
-
-.crt-content:not(.keyboard-active) .crt-line.selected {
-  background: transparent;
-  color: var(--fg);
-  text-shadow:
-    0 0 var(--glow-radius, 8px) var(--glow),
-    0 0 calc(var(--glow-radius, 8px) * 2) color-mix(in srgb, var(--glow) 40%, transparent);
-}
-
-.crt-content:not(.keyboard-active) .crt-line.navigable:hover {
+.crt-line.navigable:hover:not(.selected) {
   background: var(--fg);
   color: var(--bg);
   text-shadow: none;
+}
+
+.crt-content.kb-active .crt-line.navigable:hover:not(.selected) {
+  background: transparent;
+  color: var(--fg);
+  text-shadow: 0 0 var(--glow-radius, 8px) var(--glow);
 }
 
 .crt-cursor {
@@ -159,9 +155,7 @@
   font-size: var(--font-size, 18px);
   line-height: 1.4;
   color: var(--fg);
-  text-shadow:
-    0 0 var(--glow-radius, 8px) var(--glow),
-    0 0 calc(var(--glow-radius, 8px) * 2) color-mix(in srgb, var(--glow) 40%, transparent);
+  text-shadow: 0 0 var(--glow-radius, 8px) var(--glow);
   white-space: pre-wrap;
   text-transform: uppercase;
   margin: 8px 0;

@@ -15,7 +15,7 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 app.use(express.json({ limit: "10mb" }));
-app.use(express.static(PUBLIC_DIR));
+app.use(express.static(PUBLIC_DIR, { etag: false, lastModified: false, setHeaders: (res) => res.set("Cache-Control", "no-store") }));
 
 // Serve terminal assets as static files
 app.use("/assets/:terminalId", (req, res, next) => {
@@ -218,21 +218,34 @@ wss.on("connection", (ws) => {
     if (msg.type === "navigate" && role === "driver" && currentRoom) {
       const terminal = currentRoom.state?.terminal;
       if (!terminal) return;
-      const screen = terminal.screens[msg.screen];
-      if (!screen) return;
+      let screenId = msg.screen;
+      let screen = terminal.screens[screenId];
+      if (!screen) {
+        const match = Object.keys(terminal.screens).find((k) => k.toLowerCase() === screenId.toLowerCase());
+        if (match) { screenId = match; screen = terminal.screens[match]; }
+        else return;
+      }
 
-      currentRoom.state.currentScreen = msg.screen;
+      currentRoom.state.currentScreen = screenId;
       currentRoom.state.scrollY = 0;
       currentRoom.state.typingProgress = 0;
 
       const navMsg = {
         type: "navigate",
-        screen: msg.screen,
+        screen: screenId,
         content: screen.content,
         overrides: screen.overrides || null,
       };
       ws.send(JSON.stringify(navMsg));
       broadcast(currentRoom, navMsg, ws);
+    }
+
+    if (msg.type === "select" && role === "driver" && currentRoom) {
+      broadcast(currentRoom, { type: "select", linkId: msg.linkId });
+    }
+
+    if (msg.type === "skip" && role === "driver" && currentRoom) {
+      broadcast(currentRoom, { type: "skip" });
     }
 
     if (msg.type === "scroll" && role === "driver" && currentRoom) {

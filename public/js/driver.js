@@ -61,7 +61,6 @@ export function initDriver(container, { terminal: terminalId, room }) {
     links = getAllLinks(screen.content);
     selectedIndex = 0;
 
-    crt.content.classList.add("keyboard-active");
     renderContent(crt.content, screen.content, {
       selectedLinkId: links[0]?.id,
       onLinkClick: (link) => {
@@ -70,10 +69,16 @@ export function initDriver(container, { terminal: terminalId, room }) {
           cancelTyping = null;
           animating = false;
           stopTypingSound();
+          ws.send({ type: "skip" });
           return;
         }
         playNavSound(effectiveSettings);
         navigateTo(link.target);
+      },
+      onLinkHover: (link) => {
+        if (animating) return;
+        selectedIndex = links.findIndex((l) => l.id === link.id);
+        updateSelection();
       },
     });
 
@@ -103,14 +108,19 @@ export function initDriver(container, { terminal: terminalId, room }) {
         target.classList.add("selected");
         target.scrollIntoView({ block: "nearest" });
       }
+      ws.send({ type: "select", linkId: links[selectedIndex].id });
     }
-    crt.content.classList.add("keyboard-active");
+    crt.content.classList.add("kb-active");
   }
 
-  // Mouse movement disables keyboard-active mode
   document.addEventListener("mousemove", () => {
-    if (crt) crt.content.classList.remove("keyboard-active");
+    if (!crt) return;
+    crt.content.classList.remove("kb-active");
+    // Remove .selected so only hover shows
+    const sel = crt.content.querySelector(".crt-line.selected");
+    if (sel) sel.classList.remove("selected");
   });
+
 
   document.addEventListener("keydown", (e) => {
     if (!crt) return;
@@ -122,6 +132,7 @@ export function initDriver(container, { terminal: terminalId, room }) {
       cancelTyping = null;
       animating = false;
       stopTypingSound();
+      ws.send({ type: "skip" });
       return;
     }
 
