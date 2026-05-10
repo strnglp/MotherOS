@@ -167,13 +167,12 @@ function startRenderLoop(renderer, inner, screen, settings) {
   renderer.glCanvas.destroy = () => { running = false; };
 }
 
-function renderDOMToCanvas(ctx, inner, w, h, settings) {
+export function renderDOMToCanvas(ctx, inner, _w, _h, settings) {
   const fg = settings.colorForeground || "#00ff33";
   const glow = computeGlow(fg);
   const fontSize = settings.fontSize || 18;
   const fontFamily = settings.fontFamily || "monospace";
   const font = `${fontSize}px "${fontFamily}", monospace`;
-  const lineHeight = fontSize * 1.4;
 
   ctx.font = font;
   ctx.textBaseline = "top";
@@ -233,11 +232,16 @@ function renderDOMToCanvas(ctx, inner, w, h, settings) {
           const y = r.top - screenRect.top;
 
           if (line.classList.contains("selected")) {
+            const bg = settings.colorBackground || "#001a00";
+            const m = ctx.measureText("M");
+            const top = y - (m.actualBoundingBoxAscent || 0);
+            const bottom = y + (m.actualBoundingBoxDescent || fontSize);
+            const pad = 2;
             ctx.fillStyle = fg;
-            ctx.fillRect(x - 4, y - 2, r.width + 8, lineHeight);
-            ctx.fillStyle = settings.colorBackground || "#001a00";
+            ctx.fillRect(x - 4, top - pad, r.width + 8, bottom - top + pad * 2);
+            ctx.fillStyle = bg;
             ctx.font = blockFont;
-            drawGlowText(ctx, text, x, y, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
+            drawGlowText(ctx, text, x, y, bg, bg, 0);
           } else {
             ctx.font = blockFont;
             drawColoredLine(ctx, line, x, y, fg, glow, settings);

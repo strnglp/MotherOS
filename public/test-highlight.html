@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Highlight Visual Test</title>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&family=Fira+Code&family=IBM+Plex+Mono&family=Press+Start+2P&family=Space+Mono&family=DotGothic16&family=Silkscreen&family=Doto&family=Martian+Mono&family=Sometype+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/crt-effects.css">
+  <style>
+    body { margin: 0; padding: 20px; background: #222; color: #fff; font-family: monospace; }
+    #domStage { width: 700px; height: 600px; position: absolute; left: -10000px; top: 0; }
+    #canvasOut { display: block; background: #001a00; border: 1px solid #333; }
+    h3 { margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <h3>Canvas (production rendering path):</h3>
+  <canvas id="canvasOut" width="700" height="600"></canvas>
+  <div id="domStage"></div>
+  <script type="module">
+    import { createCRTScreen, renderContent, renderDOMToCanvas } from "/js/crt-renderer.js";
+
+    const stage = document.getElementById("domStage");
+    const settings = {
+      colorForeground: "#00ff33",
+      colorBackground: "#001a00",
+      colorAlert: "#ff3333",
+      colorHighlight: "#ffb000",
+      glowIntensity: 0,
+      glowRadius: 0,
+      scanlineIntensity: 0,
+      curvatureAmount: 0,
+      vignetteIntensity: 0,
+      flickerIntensity: 0,
+      noiseIntensity: 0,
+      fontSize: 18,
+      fontFamily: "monospace",
+    };
+    const crt = createCRTScreen(stage, settings);
+    const inner = stage.querySelector(".crt-inner");
+    if (inner) inner.style.opacity = "1"; // make DOM measurable
+    if (crt.renderer?.glCanvas) crt.renderer.glCanvas.style.display = "none";
+    crt.header.style.display = "block";
+    crt.header.dataset.fullText = "HEADER PREVIEW";
+    crt.header.textContent = "HEADER PREVIEW";
+    crt.footer.style.display = "block";
+    crt.footer.dataset.fullText = "FOOTER PREVIEW";
+    crt.footer.textContent = "FOOTER PREVIEW";
+
+    const content = [
+      { type: "text", value: "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n0123456789 !@#$%^&*()\n\nThe quick brown fox jumps\nover the lazy dog.\n\n*Alert text sample*\n/Highlight text sample/" },
+      { type: "menu", id: "sample-menu", items: [
+        { label: "Menu Item One", target: "" },
+        { label: "Menu Item Two", target: "" },
+        { label: "Menu Item Three", target: "" },
+      ]},
+    ];
+    renderContent(crt.content, content, { selectedLinkId: "sample-menu-1" });
+
+    // Render the production canvas path into our visible canvas
+    const out = document.getElementById("canvasOut");
+    const ctx = out.getContext("2d");
+
+    function paint() {
+      ctx.fillStyle = settings.colorBackground;
+      ctx.fillRect(0, 0, out.width, out.height);
+      renderDOMToCanvas(ctx, inner, out.width, out.height, settings);
+      window.__ready = true;
+    }
+    // Run synchronously so the screenshot tool can capture before "load" fires.
+    paint();
+    // Repaint on load and after fonts settle, in case earlier layout was incomplete.
+    window.addEventListener("load", paint);
+    document.fonts.ready.then(paint);
+  </script>
+</body>
+</html>
