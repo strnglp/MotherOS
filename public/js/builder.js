@@ -971,11 +971,15 @@ export async function initBuilder(container) {
     input.addEventListener("change", async () => {
       const file = input.files[0];
       if (!file) return;
-      const text = await file.text();
-      const terminal = JSON.parse(text);
-      await createTerminal(terminal);
-      await refresh();
-      await loadTerminal(terminal.id);
+      try {
+        const text = await file.text();
+        const terminal = JSON.parse(text);
+        const created = await createTerminal(terminal);
+        await refresh();
+        await loadTerminal(created.id);
+      } catch (err) {
+        alert(`Import failed: ${err.message}`);
+      }
     });
     input.click();
   });

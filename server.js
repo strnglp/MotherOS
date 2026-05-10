@@ -11,7 +11,7 @@ const DATA_DIR = join(import.meta.dirname, "data");
 const PUBLIC_DIR = join(import.meta.dirname, "public");
 const DATA_ROOT = resolve(DATA_DIR);
 
-const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 const ASSET_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
 const ALLOWED_ASSET_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".mp3", ".ogg", ".wav", ".m4a"]);
 const MAX_ASSET_BYTES = 8 * 1024 * 1024;
@@ -43,7 +43,7 @@ function safeAssetPath(id, name) {
 
 function validateTerminalShape(t) {
   if (!t || typeof t !== "object" || Array.isArray(t)) return "must be an object";
-  if (t.id !== undefined && !isValidId(t.id)) return "id must match [a-z0-9][a-z0-9_-]{0,63}";
+  if (t.id !== undefined && !isValidId(t.id)) return "id must match [a-zA-Z0-9][a-zA-Z0-9_-]{0,63}";
   if (t.name !== undefined && typeof t.name !== "string") return "name must be a string";
   if (t.entryScreen !== undefined && t.entryScreen !== null && typeof t.entryScreen !== "string") return "entryScreen must be a string or null";
   if (!t.screens || typeof t.screens !== "object" || Array.isArray(t.screens)) return "screens must be an object";

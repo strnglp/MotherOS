@@ -17,7 +17,9 @@ export async function createTerminal(terminal) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(terminal),
   });
-  return res.json();
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+  return body;
 }
 
 export async function updateTerminal(id, terminal) {
