@@ -167,10 +167,12 @@ export function createCRTRenderer(container, width, height) {
     gl.uniform1f(uniforms.u_glowIntensity, s.glowIntensity || 0);
   }
 
-  function render(time) {
+  function render(time, sourceChanged = true) {
     gl.uniform1f(uniforms.u_time, time * 0.001);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
+    if (sourceChanged) {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
+    }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 

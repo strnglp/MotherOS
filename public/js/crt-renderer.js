@@ -128,43 +128,52 @@ export function createCRTScreen(container, settings = {}) {
 function startRenderLoop(renderer, inner, screen, settings) {
   renderer._settings = settings;
   let running = true;
+  let sourceDirty = true;
+  let lastResizeW = 0;
+  let lastResizeH = 0;
+
+  // Mark source 2D canvas dirty whenever DOM content/attributes change.
+  // The WebGL pass still runs every frame for time-based effects.
+  const observer = new MutationObserver(() => { sourceDirty = true; });
+  observer.observe(inner, { childList: true, subtree: true, attributes: true, characterData: true });
 
   function paint(time) {
     if (!running) return;
 
     const { ctx, sourceCanvas } = renderer;
-    const w = sourceCanvas.width;
-    const h = sourceCanvas.height;
 
-    // Check if resize needed
+    // Check if resize needed (cheap when stable)
     const rect = screen.getBoundingClientRect();
     const rw = Math.round(rect.width);
     const rh = Math.round(rect.height);
-    if (rw > 0 && rh > 0 && (rw !== w || rh !== h)) {
-      renderer.resize(rw, rh);
+    if (rw > 0 && rh > 0 && (rw !== lastResizeW || rh !== lastResizeH)) {
+      if (rw !== sourceCanvas.width || rh !== sourceCanvas.height) {
+        renderer.resize(rw, rh);
+        sourceDirty = true;
+      }
+      lastResizeW = rw;
+      lastResizeH = rh;
     }
 
-    const cw = sourceCanvas.width;
-    const ch = sourceCanvas.height;
+    const wasDirty = sourceDirty;
+    if (sourceDirty) {
+      const cw = sourceCanvas.width;
+      const ch = sourceCanvas.height;
+      ctx.fillStyle = settings.colorBackground || "#001a00";
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.save();
+      renderDOMToCanvas(ctx, inner, cw, ch, settings);
+      ctx.restore();
+      sourceDirty = false;
+    }
 
-    // Clear with background
-    ctx.fillStyle = settings.colorBackground || "#001a00";
-    ctx.fillRect(0, 0, cw, ch);
-
-    // Draw text/images from DOM state onto 2D canvas
-    ctx.save();
-    renderDOMToCanvas(ctx, inner, cw, ch, settings);
-    ctx.restore();
-
-    // Push to WebGL (shader applies scanlines, vignette, glow, noise, flicker, curvature)
-    renderer.render(time);
-
+    renderer.render(time, wasDirty);
     requestAnimationFrame(paint);
   }
 
   paint();
 
-  renderer.glCanvas.destroy = () => { running = false; };
+  renderer.glCanvas.destroy = () => { running = false; observer.disconnect(); };
 }
 
 export function renderDOMToCanvas(ctx, inner, _w, _h, settings) {
@@ -224,7 +233,7 @@ export function renderDOMToCanvas(ctx, inner, _w, _h, settings) {
         const lines = child.querySelectorAll(".crt-line");
         for (const line of lines) {
           if (line.style.visibility === "hidden") continue;
-          const text = line.innerText.toUpperCase();
+          const text = line.textContent.toUpperCase();
           if (!text.trim() && line.style.height) continue;
 
           const r = line.getBoundingClientRect();
@@ -267,66 +276,46 @@ export function renderDOMToCanvas(ctx, inner, _w, _h, settings) {
   }
 }
 
-function drawColoredLine(ctx, lineEl, x, y, fg, glow, settings) {
-  const radius = settings.glowRadius * settings.glowIntensity;
+function drawColoredLine(ctx, lineEl, x, y, fg, _glow, settings) {
   const charWidth = ctx.measureText("MMMMMMMMMM").width / 10;
   let offsetX = 0;
 
   const alertColor = settings.colorAlert || "#ff3333";
-  const alertGlow = computeGlow(alertColor);
   const highlightColor = settings.colorHighlight || "#ffb000";
-  const highlightGlow = computeGlow(highlightColor);
 
   for (const node of lineEl.childNodes) {
-    let text, color, glowCol;
+    let text, color;
 
     if (node.nodeType === 3) {
       text = node.textContent.toUpperCase();
       color = fg;
-      glowCol = glow;
     } else if (node.classList?.contains("crt-alert")) {
       text = node.textContent.toUpperCase();
       color = alertColor;
-      glowCol = alertGlow;
     } else if (node.classList?.contains("crt-highlight")) {
       text = node.textContent.toUpperCase();
       color = highlightColor;
-      glowCol = highlightGlow;
     } else {
       text = node.textContent.toUpperCase();
       color = fg;
-      glowCol = glow;
     }
 
     if (!text) continue;
 
-    if (radius > 0) {
-      ctx.shadowColor = glowCol;
-      ctx.shadowBlur = radius;
-    }
     ctx.fillStyle = color;
     for (let i = 0; i < text.length; i++) {
       ctx.fillText(text[i], x + offsetX, y);
       offsetX += charWidth;
     }
-    ctx.shadowBlur = 0;
   }
 }
 
-function drawGlowText(ctx, text, x, y, color, glowColor, radius) {
+function drawGlowText(ctx, text, x, y, color, _glowColor, _radius) {
   const charWidth = ctx.measureText("MMMMMMMMMM").width / 10;
-
-  if (radius > 0) {
-    ctx.shadowColor = glowColor;
-    ctx.shadowBlur = radius;
-  }
   ctx.fillStyle = color;
-
   for (let i = 0; i < text.length; i++) {
     ctx.fillText(text[i], x + i * charWidth, y);
   }
-
-  ctx.shadowBlur = 0;
 }
 
 function applySettings(screen, content, s) {

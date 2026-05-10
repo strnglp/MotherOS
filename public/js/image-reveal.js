@@ -108,6 +108,7 @@ function animatePixelate(ctx, img, w, h, speed, fgColor, bgColor, glowColor, res
 
     applyPalette(ctx, w, h, fgColor, bgColor, glowColor);
 
+    ctx.canvas.dataset.revealStep = String(step);
     step++;
     setTimeout(tick, speed);
   }
@@ -136,6 +137,7 @@ function animateScanline(ctx, img, w, h, speed, fgColor, bgColor, glowColor, res
     sliceData.data.set(fullData.data.subarray(srcOffset, srcOffset + w * chunk * 4));
     ctx.putImageData(sliceData, 0, y);
 
+    ctx.canvas.dataset.revealStep = String(y);
     y += chunk;
     setTimeout(tick, speed / 4);
   }
