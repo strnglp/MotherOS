@@ -3,12 +3,55 @@ import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 import { readdir, readFile, writeFile, mkdir, rm, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, extname } from "node:path";
+import { join, extname, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = join(import.meta.dirname, "data");
 const PUBLIC_DIR = join(import.meta.dirname, "public");
+const DATA_ROOT = resolve(DATA_DIR);
+
+const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const ASSET_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
+const ALLOWED_ASSET_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".mp3", ".ogg", ".wav", ".m4a"]);
+const MAX_ASSET_BYTES = 8 * 1024 * 1024;
+
+function isValidId(id) {
+  return typeof id === "string" && ID_PATTERN.test(id);
+}
+
+function isValidAssetName(name) {
+  if (typeof name !== "string" || !ASSET_NAME_PATTERN.test(name)) return false;
+  if (name.includes("..")) return false;
+  return ALLOWED_ASSET_EXTS.has(extname(name).toLowerCase());
+}
+
+function safeTerminalDir(id) {
+  if (!isValidId(id)) return null;
+  const dir = resolve(join(DATA_DIR, id));
+  if (dir !== DATA_ROOT && !dir.startsWith(DATA_ROOT + sep)) return null;
+  return dir;
+}
+
+function safeAssetPath(id, name) {
+  const dir = safeTerminalDir(id);
+  if (!dir || !isValidAssetName(name)) return null;
+  const file = resolve(join(dir, "assets", name));
+  if (!file.startsWith(dir + sep)) return null;
+  return file;
+}
+
+function validateTerminalShape(t) {
+  if (!t || typeof t !== "object" || Array.isArray(t)) return "must be an object";
+  if (t.id !== undefined && !isValidId(t.id)) return "id must match [a-z0-9][a-z0-9_-]{0,63}";
+  if (t.name !== undefined && typeof t.name !== "string") return "name must be a string";
+  if (t.entryScreen !== undefined && t.entryScreen !== null && typeof t.entryScreen !== "string") return "entryScreen must be a string or null";
+  if (!t.screens || typeof t.screens !== "object" || Array.isArray(t.screens)) return "screens must be an object";
+  for (const key of Object.keys(t.screens)) {
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(key)) return `invalid screen id: ${key}`;
+  }
+  return null;
+}
 
 const app = express();
 const server = createServer(app);
@@ -23,8 +66,9 @@ app.get("/passenger", (req, res) => res.sendFile(join(PUBLIC_DIR, "index.html"))
 
 // Serve terminal assets as static files
 app.use("/assets/:terminalId", (req, res, next) => {
-  const assetsPath = join(DATA_DIR, req.params.terminalId, "assets");
-  express.static(assetsPath)(req, res, next);
+  const dir = safeTerminalDir(req.params.terminalId);
+  if (!dir) return res.status(400).json({ error: "Invalid terminal id" });
+  express.static(join(dir, "assets"))(req, res, next);
 });
 
 // --- REST API ---
@@ -51,7 +95,9 @@ app.get("/api/terminals", async (req, res) => {
 
 app.get("/api/terminals/:id", async (req, res) => {
   try {
-    const jsonPath = join(DATA_DIR, req.params.id, "terminal.json");
+    const dir = safeTerminalDir(req.params.id);
+    if (!dir) return res.status(400).json({ error: "Invalid terminal id" });
+    const jsonPath = join(dir, "terminal.json");
     if (!existsSync(jsonPath)) {
       return res.status(404).json({ error: "Terminal not found" });
     }
@@ -65,10 +111,13 @@ app.get("/api/terminals/:id", async (req, res) => {
 app.post("/api/terminals", async (req, res) => {
   try {
     const terminal = req.body;
+    const shapeError = validateTerminalShape(terminal);
+    if (shapeError) return res.status(400).json({ error: shapeError });
     if (!terminal.id) {
       terminal.id = randomUUID().slice(0, 8);
     }
-    const dir = join(DATA_DIR, terminal.id);
+    const dir = safeTerminalDir(terminal.id);
+    if (!dir) return res.status(400).json({ error: "Invalid terminal id" });
     await mkdir(dir, { recursive: true });
     await mkdir(join(dir, "assets"), { recursive: true });
     await writeFile(join(dir, "terminal.json"), JSON.stringify(terminal, null, 2));
@@ -80,12 +129,15 @@ app.post("/api/terminals", async (req, res) => {
 
 app.put("/api/terminals/:id", async (req, res) => {
   try {
-    const dir = join(DATA_DIR, req.params.id);
+    const dir = safeTerminalDir(req.params.id);
+    if (!dir) return res.status(400).json({ error: "Invalid terminal id" });
     const jsonPath = join(dir, "terminal.json");
     if (!existsSync(jsonPath)) {
       return res.status(404).json({ error: "Terminal not found" });
     }
     const terminal = req.body;
+    const shapeError = validateTerminalShape(terminal);
+    if (shapeError) return res.status(400).json({ error: shapeError });
     terminal.id = req.params.id;
     await writeFile(jsonPath, JSON.stringify(terminal, null, 2));
     res.json(terminal);
@@ -96,7 +148,8 @@ app.put("/api/terminals/:id", async (req, res) => {
 
 app.delete("/api/terminals/:id", async (req, res) => {
   try {
-    const dir = join(DATA_DIR, req.params.id);
+    const dir = safeTerminalDir(req.params.id);
+    if (!dir) return res.status(400).json({ error: "Invalid terminal id" });
     if (!existsSync(dir)) {
       return res.status(404).json({ error: "Terminal not found" });
     }
@@ -107,21 +160,29 @@ app.delete("/api/terminals/:id", async (req, res) => {
   }
 });
 
-// Asset upload (simple base64 JSON approach — no multipart needed for now)
 app.post("/api/terminals/:id/assets", async (req, res) => {
   try {
-    const dir = join(DATA_DIR, req.params.id, "assets");
-    if (!existsSync(dir)) {
+    const dir = safeTerminalDir(req.params.id);
+    if (!dir) return res.status(400).json({ error: "Invalid terminal id" });
+    const assetsDir = join(dir, "assets");
+    if (!existsSync(assetsDir)) {
       return res.status(404).json({ error: "Terminal not found" });
     }
     const { filename, data } = req.body;
     if (!filename || !data) {
       return res.status(400).json({ error: "filename and data (base64) required" });
     }
-    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    if (!isValidAssetName(filename)) {
+      return res.status(400).json({ error: "invalid filename or unsupported file type" });
+    }
+    const target = safeAssetPath(req.params.id, filename);
+    if (!target) return res.status(400).json({ error: "invalid asset path" });
     const buffer = Buffer.from(data, "base64");
-    await writeFile(join(dir, safeName), buffer);
-    res.status(201).json({ filename: safeName, src: `assets/${safeName}` });
+    if (buffer.length > MAX_ASSET_BYTES) {
+      return res.status(413).json({ error: `asset exceeds ${MAX_ASSET_BYTES} bytes` });
+    }
+    await writeFile(target, buffer);
+    res.status(201).json({ filename, src: `assets/${filename}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -129,11 +190,13 @@ app.post("/api/terminals/:id/assets", async (req, res) => {
 
 app.get("/api/terminals/:id/assets", async (req, res) => {
   try {
-    const dir = join(DATA_DIR, req.params.id, "assets");
-    if (!existsSync(dir)) {
+    const dir = safeTerminalDir(req.params.id);
+    if (!dir) return res.status(400).json({ error: "Invalid terminal id" });
+    const assetsDir = join(dir, "assets");
+    if (!existsSync(assetsDir)) {
       return res.status(404).json({ error: "Terminal not found" });
     }
-    const files = await readdir(dir);
+    const files = await readdir(assetsDir);
     res.json(files.filter((f) => !f.startsWith(".")));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -142,7 +205,8 @@ app.get("/api/terminals/:id/assets", async (req, res) => {
 
 app.delete("/api/terminals/:id/assets/:filename", async (req, res) => {
   try {
-    const filePath = join(DATA_DIR, req.params.id, "assets", req.params.filename);
+    const filePath = safeAssetPath(req.params.id, req.params.filename);
+    if (!filePath) return res.status(400).json({ error: "Invalid id or filename" });
     if (!existsSync(filePath)) {
       return res.status(404).json({ error: "Asset not found" });
     }
@@ -197,8 +261,9 @@ wss.on("connection", (ws) => {
       if (role === "driver") {
         room.driver = ws;
         if (msg.terminal) {
-          const jsonPath = join(DATA_DIR, msg.terminal, "terminal.json");
-          if (existsSync(jsonPath)) {
+          const dir = safeTerminalDir(msg.terminal);
+          const jsonPath = dir && join(dir, "terminal.json");
+          if (jsonPath && existsSync(jsonPath)) {
             const terminal = JSON.parse(await readFile(jsonPath, "utf-8"));
             room.state = {
               terminal,

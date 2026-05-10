@@ -125,6 +125,55 @@ describe("REST API", () => {
     assert.strictEqual(res.status, 404);
   });
 
+  it("POST /api/terminals rejects path-traversal id", async () => {
+    const res = await fetch(`${BASE_URL}/api/terminals`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "../escape", name: "x", screens: {}, entryScreen: null }),
+    });
+    assert.strictEqual(res.status, 400);
+  });
+
+  it("GET /api/terminals/:id rejects path-traversal id", async () => {
+    const res = await fetch(`${BASE_URL}/api/terminals/..%2F..%2Fetc`);
+    assert.strictEqual(res.status, 400);
+  });
+
+  it("DELETE /api/terminals/:id rejects path-traversal id", async () => {
+    const res = await fetch(`${BASE_URL}/api/terminals/..%2Fetc`, { method: "DELETE" });
+    assert.strictEqual(res.status, 400);
+  });
+
+  it("POST asset rejects executable extensions", async () => {
+    const terminal = { id: "x-test", name: "X", defaults: {}, screens: {}, entryScreen: null };
+    await fetch(`${BASE_URL}/api/terminals`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(terminal),
+    });
+    const res = await fetch(`${BASE_URL}/api/terminals/x-test/assets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: "evil.html", data: "PGgxPng8L2gxPg==" }),
+    });
+    assert.strictEqual(res.status, 400);
+  });
+
+  it("POST asset rejects path-traversal filename", async () => {
+    const terminal = { id: "x2-test", name: "X", defaults: {}, screens: {}, entryScreen: null };
+    await fetch(`${BASE_URL}/api/terminals`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(terminal),
+    });
+    const res = await fetch(`${BASE_URL}/api/terminals/x2-test/assets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: "../escape.png", data: "AA==" }),
+    });
+    assert.strictEqual(res.status, 400);
+  });
+
   it("POST /api/terminals/:id/assets uploads a file", async () => {
     const terminal = { id: "asset-test", name: "Asset Test", defaults: {}, screens: {}, entryScreen: null };
     await fetch(`${BASE_URL}/api/terminals`, {
