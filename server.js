@@ -48,7 +48,7 @@ function validateTerminalShape(t) {
   if (t.entryScreen !== undefined && t.entryScreen !== null && typeof t.entryScreen !== "string") return "entryScreen must be a string or null";
   if (!t.screens || typeof t.screens !== "object" || Array.isArray(t.screens)) return "screens must be an object";
   for (const key of Object.keys(t.screens)) {
-    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(key)) return `invalid screen id: ${key}`;
+    if (typeof key !== "string" || key.length === 0 || key.length > 128) return `invalid screen id: ${key}`;
   }
   return null;
 }
