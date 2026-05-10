@@ -1,6 +1,6 @@
 import { createCRTScreen, renderContent, setHeaderFooter } from "./crt-renderer.js";
-import { listTerminals, getTerminal, createTerminal, updateTerminal, deleteTerminal, uploadAsset } from "./api-client.js";
-import { playPreview, stopPreview, playOnce, preloadAudio } from "./audio.js";
+import { listTerminals, getTerminal, createTerminal, updateTerminal, uploadAsset } from "./api-client.js";
+import { playPreview, playOnce, preloadAudio } from "./audio.js";
 import { revealAllImages } from "./image-reveal.js";
 
 export async function initBuilder(container) {
@@ -15,9 +15,11 @@ export async function initBuilder(container) {
       <div class="builder-header">
         <h1>CRT Terminal Builder</h1>
         <div class="actions">
-          <button id="btn-launch">Launch</button>
-          <button id="btn-export">Export</button>
+          <button id="btn-add-terminal">+ Terminal</button>
+          <button id="btn-load-terminal">Load Terminal</button>
           <button id="btn-import">Import</button>
+          <button id="btn-export">Export</button>
+          <button id="btn-launch">Launch</button>
         </div>
       </div>
       <div class="builder-sidebar" id="sidebar"></div>
@@ -175,16 +177,12 @@ export async function initBuilder(container) {
       sidebar.appendChild(group);
     }
 
-    const addTermBtn = document.createElement("button");
-    addTermBtn.textContent = "+ Terminal";
-    addTermBtn.style.marginTop = "12px";
-    addTermBtn.addEventListener("click", addNewTerminal);
-    sidebar.appendChild(addTermBtn);
   }
 
   async function loadTerminal(id) {
     activeTerminal = await getTerminal(id);
     activeScreenId = activeTerminal.entryScreen || Object.keys(activeTerminal.screens)[0];
+    localStorage.setItem("crt-last-terminal", id);
     renderSidebar();
     selectScreen(activeScreenId);
   }
@@ -982,8 +980,38 @@ export async function initBuilder(container) {
     input.click();
   });
 
+  document.getElementById("btn-add-terminal").addEventListener("click", addNewTerminal);
+
+  document.getElementById("btn-load-terminal").addEventListener("click", () => {
+    const dialog = document.createElement("div");
+    dialog.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;";
+    const list = terminals.length === 0
+      ? `<p style="color:#888;font-size:13px;">No saved terminals yet. Create one with "+ Terminal" or "Import".</p>`
+      : `<ul style="list-style:none;padding:0;margin:0;max-height:60vh;overflow:auto;">${terminals.map((t) => `<li><button class="load-pick" data-id="${t.id}" style="display:block;width:100%;text-align:left;padding:8px 12px;margin:2px 0;background:#222;border:1px solid #333;color:var(--fg);cursor:pointer;font-family:monospace;">${t.name || t.id} <span style="color:#666;font-size:11px;">(${t.id})</span></button></li>`).join("")}</ul>`;
+    dialog.innerHTML = `
+      <div style="background:#111;border:1px solid #333;border-radius:4px;padding:20px;min-width:320px;max-width:480px;">
+        <h2 style="margin:0 0 12px 0;font-size:14px;color:var(--fg);">Load Terminal</h2>
+        ${list}
+        <div style="margin-top:12px;text-align:right;"><button id="load-cancel">Close</button></div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+    dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.remove(); });
+    dialog.querySelector("#load-cancel").addEventListener("click", () => dialog.remove());
+    for (const btn of dialog.querySelectorAll(".load-pick")) {
+      btn.addEventListener("click", async () => {
+        dialog.remove();
+        await loadTerminal(btn.dataset.id);
+      });
+    }
+  });
+
   await refresh();
-  if (terminals.length > 0) {
+  const lastId = localStorage.getItem("crt-last-terminal");
+  const lastValid = lastId && terminals.some((t) => t.id === lastId);
+  if (lastValid) {
+    await loadTerminal(lastId);
+  } else if (terminals.length > 0) {
     await loadTerminal(terminals[0].id);
   }
 }
