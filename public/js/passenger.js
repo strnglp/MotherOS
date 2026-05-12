@@ -1,7 +1,7 @@
 import { createCRTScreen, renderContent, setHeaderFooter, getAllLinks } from "./crt-renderer.js";
 import { createWSClient } from "./ws-client.js";
 import { slowType } from "./slow-type.js";
-import { revealAllImages } from "./image-reveal.js";
+import { setupImageReveals } from "./image-reveal.js";
 import { preloadAudio, startTypingSound, stopTypingSound, playNavSound } from "./audio.js";
 
 export function initPassenger(container, { room }) {
@@ -45,7 +45,7 @@ export function initPassenger(container, { room }) {
         cancelTyping = slowType(crt.content, msg.content, effectiveSettings, () => {
           stopTypingSound();
         });
-        revealAllImages(crt.content, terminal?.id, effectiveSettings);
+        setupImageReveals(crt.content, terminal?.id, effectiveSettings);
       }
 
       if (msg.type === "skip") {
@@ -84,6 +84,6 @@ export function initPassenger(container, { room }) {
     cancelTyping = slowType(crt.content, screen.content, effectiveSettings, () => {
       stopTypingSound();
     });
-    revealAllImages(crt.content, terminal?.id, effectiveSettings);
+    setupImageReveals(crt.content, terminal?.id, effectiveSettings);
   }
 }

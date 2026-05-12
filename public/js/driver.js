@@ -1,7 +1,7 @@
 import { createCRTScreen, renderContent, getAllLinks, setHeaderFooter } from "./crt-renderer.js";
 import { createWSClient } from "./ws-client.js";
 import { slowType } from "./slow-type.js";
-import { revealAllImages } from "./image-reveal.js";
+import { setupImageReveals } from "./image-reveal.js";
 import { preloadAudio, startTypingSound, stopTypingSound, playNavSound } from "./audio.js";
 
 export function initDriver(container, { terminal: terminalId, room }) {
@@ -90,7 +90,7 @@ export function initDriver(container, { terminal: terminalId, room }) {
       stopTypingSound();
       animating = false;
     });
-    revealAllImages(crt.content, terminal.id, effectiveSettings);
+    setupImageReveals(crt.content, terminal.id, effectiveSettings);
 
     if (broadcast) {
       ws.send({ type: "navigate", screen: screenId, header: screen.header || navHints });

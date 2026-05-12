@@ -1,7 +1,7 @@
 import { createCRTScreen, renderContent, setHeaderFooter } from "./crt-renderer.js";
 import { listTerminals, getTerminal, createTerminal, updateTerminal, uploadAsset } from "./api-client.js";
 import { playPreview, playOnce, updatePreview, preloadAudio, getAvailableSounds } from "./audio.js";
-import { revealAllImages } from "./image-reveal.js";
+import { setupImageReveals } from "./image-reveal.js";
 
 export async function initBuilder(container) {
   await preloadAudio();
@@ -288,7 +288,7 @@ export async function initBuilder(container) {
     currentCrt.header.textContent = currentCrt.header.dataset.fullText || "";
     currentCrt.footer.textContent = currentCrt.footer.dataset.fullText || "";
     renderContent(currentCrt.content, screen.content, {});
-    revealAllImages(currentCrt.content, activeTerminal.id, settings);
+    setupImageReveals(currentCrt.content, activeTerminal.id, settings);
   }
 
   function updatePreviewSettings() {

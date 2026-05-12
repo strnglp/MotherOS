@@ -34,6 +34,8 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
       segments.push({ type: "divider", el: child });
     } else if (child.classList.contains("crt-footer")) {
       segments.push({ type: "footer", el: child, text: child.dataset.fullText || child.textContent });
+    } else if (child.classList.contains("crt-image-canvas")) {
+      segments.push({ type: "image", el: child });
     } else if (child.tagName === "PRE") {
       const block = typeable[blockIdx];
       let text;
@@ -56,6 +58,8 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
       seg.el.textContent = "";
     } else if (seg.type === "divider") {
       seg.el.style.visibility = "hidden";
+    } else if (seg.type === "image") {
+      seg.el.style.visibility = "hidden";
     } else if (seg.type === "text") {
       updatePreVisibility(seg.pre, seg.text, 0);
     }
@@ -76,6 +80,15 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
 
     if (seg.type === "divider") {
       seg.el.style.visibility = "visible";
+      segIndex++;
+      charIndex = 0;
+      setTimeout(tick, slowTypeSpeed * 1000);
+      return;
+    }
+
+    if (seg.type === "image") {
+      seg.el.style.visibility = "visible";
+      seg.el.dispatchEvent(new CustomEvent("startReveal"));
       segIndex++;
       charIndex = 0;
       setTimeout(tick, slowTypeSpeed * 1000);
@@ -118,6 +131,9 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
         seg.el.textContent = seg.text.toUpperCase();
       } else if (seg.type === "divider") {
         seg.el.style.visibility = "visible";
+      } else if (seg.type === "image") {
+        seg.el.style.visibility = "visible";
+        seg.el.dispatchEvent(new CustomEvent("startReveal"));
       } else if (seg.type === "text") {
         updatePreVisibility(seg.pre, seg.text, seg.text.length);
       }

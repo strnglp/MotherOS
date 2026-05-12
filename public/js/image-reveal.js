@@ -174,9 +174,8 @@ function parseColor(hex) {
   ];
 }
 
-export function revealAllImages(container, terminalId, settings = {}) {
+export function setupImageReveals(container, terminalId, settings = {}) {
   const canvases = container.querySelectorAll(".crt-image-canvas");
-  // Read actual colors from CSS custom properties as ground truth
   const screen = container.closest(".crt-screen");
   const computedFg = screen ? getComputedStyle(screen).getPropertyValue("--fg").trim() : null;
   const computedBg = screen ? getComputedStyle(screen).getPropertyValue("--bg").trim() : null;
@@ -184,9 +183,8 @@ export function revealAllImages(container, terminalId, settings = {}) {
   const bgColor = settings.colorBackground || computedBg || "#001a00";
   const glowColor = computeGlowHex(fgColor);
 
-  const promises = [];
   for (const canvas of canvases) {
-    promises.push(
+    canvas.addEventListener("startReveal", () => {
       revealImage(canvas, {
         src: canvas.dataset.src,
         revealStyle: canvas.dataset.revealStyle,
@@ -196,8 +194,7 @@ export function revealAllImages(container, terminalId, settings = {}) {
         fgColor,
         bgColor,
         glowColor,
-      })
-    );
+      });
+    }, { once: true });
   }
-  return Promise.all(promises);
 }
