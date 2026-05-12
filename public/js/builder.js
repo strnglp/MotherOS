@@ -1,10 +1,10 @@
 import { createCRTScreen, renderContent, setHeaderFooter } from "./crt-renderer.js";
 import { listTerminals, getTerminal, createTerminal, updateTerminal, uploadAsset } from "./api-client.js";
-import { playPreview, playOnce, preloadAudio } from "./audio.js";
+import { playPreview, playOnce, updatePreview, preloadAudio, getAvailableSounds } from "./audio.js";
 import { revealAllImages } from "./image-reveal.js";
 
 export async function initBuilder(container) {
-  preloadAudio();
+  await preloadAudio();
 
   let terminals = [];
   let activeTerminal = null;
@@ -295,6 +295,7 @@ export async function initBuilder(container) {
     if (currentCrt.renderer) {
       currentCrt.renderer.setSettings(settings);
     }
+    updatePreview(settings.soundVolume || 0.7, settings.typingSoundRate || 1.0);
   }
 
   function renderEditor() {
@@ -717,9 +718,9 @@ export async function initBuilder(container) {
       { name: "Audio", settings: [
         { key: "soundEnabled", label: "Enabled", type: "checkbox" },
         { key: "soundVolume", label: "Volume", min: 0, max: 1, step: 0.05 },
-        { key: "typingSound", label: "Draw Sound", type: "select", options: ["teletext", "dot-matrix"] },
+        { key: "typingSound", label: "Draw Sound", type: "select", options: getAvailableSounds() },
         { key: "typingSoundRate", label: "Pitch", min: 0.5, max: 2, step: 0.1 },
-        { key: "navSound", label: "Nav Sound", type: "select", options: ["digital-beep", "arcade-blip", "terminal-confirm", ""] },
+        { key: "navSound", label: "Nav Sound", type: "select", options: [...getAvailableSounds(), ""] },
       ]},
     ];
 
@@ -1053,8 +1054,8 @@ function getDefaultSettings() {
     cursorChar: "█",
     soundEnabled: true,
     soundVolume: 0.7,
-    typingSound: "teletext",
+    typingSound: "teletext.mp3",
     typingSoundRate: 1.0,
-    navSound: "digital-beep",
+    navSound: "digital-beep.mp3",
   };
 }

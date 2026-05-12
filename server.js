@@ -64,6 +64,18 @@ app.use(express.static(PUBLIC_DIR, { etag: false, lastModified: false, setHeader
 app.get("/builder", (req, res) => res.sendFile(join(PUBLIC_DIR, "index.html")));
 app.get("/passenger", (req, res) => res.sendFile(join(PUBLIC_DIR, "index.html")));
 
+// List available audio files
+app.get("/api/audio", async (req, res) => {
+  try {
+    const audioDir = join(PUBLIC_DIR, "audio");
+    const files = await readdir(audioDir);
+    const sounds = files.filter((f) => /\.(mp3|wav|ogg|webm)$/i.test(f));
+    res.json(sounds);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
 // Serve terminal assets as static files
 app.use("/assets/:terminalId", (req, res, next) => {
   const dir = safeTerminalDir(req.params.terminalId);

@@ -1,27 +1,28 @@
 const AUDIO_BASE = "/audio/";
 
-const PRESETS = {
-  teletext: "teletext.mp3",
-  "dot-matrix": "dot-matrix.wav",
-  "digital-beep": "digital-beep.mp3",
-  "arcade-blip": "arcade-blip.wav",
-  "terminal-confirm": "terminal-confirm.wav",
-};
+let availableSounds = [];
 
-export function preloadAudio() {
-  for (const [name, file] of Object.entries(PRESETS)) {
+export async function preloadAudio() {
+  try {
+    const res = await fetch("/api/audio");
+    availableSounds = await res.json();
+  } catch {
+    availableSounds = [];
+  }
+  for (const name of availableSounds) {
     const audio = new Audio(getSrc(name));
     audio.preload = "auto";
     audio.load();
   }
 }
 
+export function getAvailableSounds() {
+  return availableSounds;
+}
+
 function getSrc(nameOrPath) {
   if (nameOrPath.startsWith("/") || nameOrPath.startsWith("http")) {
     return nameOrPath;
-  }
-  if (PRESETS[nameOrPath]) {
-    return `${AUDIO_BASE}${PRESETS[nameOrPath]}`;
   }
   return `${AUDIO_BASE}${nameOrPath}`;
 }
@@ -82,6 +83,13 @@ export function playPreview(soundName, volume = 0.7, rate = 1.0) {
   audio.play().catch(() => {});
   previewAudio = audio;
   return true;
+}
+
+export function updatePreview(volume, rate) {
+  if (previewAudio) {
+    previewAudio.volume = volume;
+    previewAudio.playbackRate = rate;
+  }
 }
 
 export function stopPreview() {

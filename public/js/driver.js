@@ -172,9 +172,8 @@ export function initDriver(container, { terminal: terminalId, room }) {
         e.preventDefault();
         if (history.length > 0) {
           const prev = history.pop();
-          currentScreen = null; // prevent double-push
-          navigateTo(prev);
-          history.pop(); // remove the re-pushed entry
+          currentScreen = null;
+          navigateTo(prev, true);
         }
         break;
       case "PageUp":

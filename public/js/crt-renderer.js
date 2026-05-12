@@ -120,7 +120,7 @@ export function createCRTScreen(container, settings = {}) {
 
   return { screen, content, header, footer, renderer, update: (newSettings) => {
     Object.assign(s, newSettings);
-    if (renderer?._settings) Object.assign(renderer._settings, s);
+    if (renderer) renderer._dirty = true;
     applySettings(screen, content, s);
   }};
 }
@@ -155,6 +155,10 @@ function startRenderLoop(renderer, inner, screen, settings) {
       lastResizeH = rh;
     }
 
+    if (renderer._dirty) {
+      sourceDirty = true;
+      renderer._dirty = false;
+    }
     const wasDirty = sourceDirty;
     if (sourceDirty) {
       const cw = sourceCanvas.width;
