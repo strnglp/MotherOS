@@ -132,10 +132,11 @@ function startRenderLoop(renderer, inner, screen, settings) {
   let lastResizeW = 0;
   let lastResizeH = 0;
 
-  // Mark source 2D canvas dirty whenever DOM content/attributes change.
-  // The WebGL pass still runs every frame for time-based effects.
+  // Mark source dirty on DOM changes or scroll
   const observer = new MutationObserver(() => { sourceDirty = true; });
   observer.observe(inner, { childList: true, subtree: true, attributes: true, characterData: true });
+  const contentEl = inner.querySelector(".crt-content");
+  if (contentEl) contentEl.addEventListener("scroll", () => { sourceDirty = true; }, { passive: true });
 
   function paint(time) {
     if (!running) return;
@@ -180,54 +181,66 @@ function startRenderLoop(renderer, inner, screen, settings) {
   renderer.glCanvas.destroy = () => { running = false; observer.disconnect(); };
 }
 
-export function renderDOMToCanvas(ctx, inner, _w, _h, settings) {
+export function renderDOMToCanvas(ctx, inner, w, h, settings) {
   const fg = settings.colorForeground || "#00ff33";
   const glow = computeGlow(fg);
   const fontSize = settings.fontSize || 18;
   const fontFamily = settings.fontFamily || "monospace";
   const font = `${fontSize}px "${fontFamily}", monospace`;
+  const lineHeight = fontSize * 1.4;
+  const padding = 24;
 
   ctx.font = font;
   ctx.textBaseline = "top";
 
-  const screenRect = inner.closest(".crt-screen").getBoundingClientRect();
+  let y = 0;
 
   // Header
   const headerEl = inner.querySelector(".crt-header");
   if (headerEl && headerEl.style.display !== "none" && headerEl.style.visibility !== "hidden") {
-    const r = headerEl.getBoundingClientRect();
-    const x = r.left - screenRect.left;
-    const y = r.top - screenRect.top;
-    drawGlowText(ctx, headerEl.textContent.toUpperCase(), x, y, fg, glow, settings.glowRadius * settings.glowIntensity);
-    // Border
+    const text = headerEl.textContent.toUpperCase();
+    y = 8;
+    drawGlowText(ctx, text, padding, y, fg, glow, settings.glowRadius * settings.glowIntensity);
+    y += lineHeight;
     ctx.strokeStyle = fg + "4d";
     ctx.beginPath();
-    ctx.moveTo(x, y + r.height);
-    ctx.lineTo(x + r.width, y + r.height);
+    ctx.moveTo(padding, y + 4);
+    ctx.lineTo(w - padding, y + 4);
     ctx.stroke();
+    y += 12;
   }
 
   // Content
   const contentEl = inner.querySelector(".crt-content");
+  const scrollOffset = contentEl ? contentEl.scrollTop : 0;
+  const contentTop = y;
+  y = contentTop + padding - scrollOffset;
+
   if (contentEl) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, contentTop, w, h - contentTop);
+    ctx.clip();
+
     for (const child of contentEl.children) {
       if (child.classList.contains("crt-divider")) {
         if (child.style.visibility === "hidden") continue;
-        const r = child.getBoundingClientRect();
-        const x = r.left - screenRect.left;
-        const y = r.top - screenRect.top;
         ctx.strokeStyle = fg + "4d";
         ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + r.width, y);
+        ctx.moveTo(padding, y + 4);
+        ctx.lineTo(w - padding, y + 4);
         ctx.stroke();
+        y += 16;
       } else if (child.classList.contains("crt-image-canvas")) {
         if (child.width > 0 && child.height > 0) {
-          const r = child.getBoundingClientRect();
-          const x = r.left - screenRect.left;
-          const y = r.top - screenRect.top;
-          ctx.drawImage(child, x, y, r.width, r.height);
+          const imgW = child.style.width ? parseInt(child.style.width) : child.width;
+          const imgH = (child.height / child.width) * imgW;
+          const imgX = (w - imgW) / 2;
+          ctx.drawImage(child, imgX, y, imgW, imgH);
+          y += imgH + 16;
         }
+      } else if (child.classList.contains("crt-footer")) {
+        // Footer handled after loop
       } else {
         const blockFont = child.style.fontFamily
           ? `${fontSize}px ${child.style.fontFamily}`
@@ -236,47 +249,45 @@ export function renderDOMToCanvas(ctx, inner, _w, _h, settings) {
 
         const lines = child.querySelectorAll(".crt-line");
         for (const line of lines) {
-          if (line.style.visibility === "hidden") continue;
+          if (line.style.visibility === "hidden") {
+            y += lineHeight;
+            continue;
+          }
           const text = line.textContent.toUpperCase();
-          if (!text.trim() && line.style.height) continue;
-
-          const r = line.getBoundingClientRect();
-          const x = r.left - screenRect.left;
-          const y = r.top - screenRect.top;
+          if (!text.trim() && line.style.height) {
+            y += lineHeight;
+            continue;
+          }
 
           if (line.classList.contains("selected")) {
-            const bg = settings.colorBackground || "#001a00";
-            const m = ctx.measureText("M");
-            const top = y - (m.actualBoundingBoxAscent || 0);
-            const bottom = y + (m.actualBoundingBoxDescent || fontSize);
-            const pad = 2;
             ctx.fillStyle = fg;
-            ctx.fillRect(x - 4, top - pad, r.width + 8, bottom - top + pad * 2);
-            ctx.fillStyle = bg;
+            ctx.fillRect(padding - 4, y - 2, w - padding * 2 + 8, lineHeight);
+            ctx.fillStyle = settings.colorBackground || "#001a00";
             ctx.font = blockFont;
-            drawGlowText(ctx, text, x, y, bg, bg, 0);
+            drawGlowText(ctx, text, padding, y, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
           } else {
             ctx.font = blockFont;
-            drawColoredLine(ctx, line, x, y, fg, glow, settings);
+            drawColoredLine(ctx, line, padding, y, fg, glow, settings);
           }
+          y += lineHeight;
         }
       }
     }
-  }
 
-  // Footer
-  const footerEl = inner.querySelector(".crt-footer");
-  if (footerEl && footerEl.style.display !== "none" && footerEl.style.visibility !== "hidden") {
-    const r = footerEl.getBoundingClientRect();
-    const x = r.left - screenRect.left;
-    const y = r.top - screenRect.top;
-    // Border
-    ctx.strokeStyle = fg + "4d";
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + r.width, y);
-    ctx.stroke();
-    drawGlowText(ctx, footerEl.textContent.toUpperCase(), x, y + 4, fg, glow, settings.glowRadius * settings.glowIntensity);
+    // Footer inside content
+    const footerEl = contentEl.querySelector(".crt-footer");
+    if (footerEl && footerEl.style.display !== "none" && footerEl.style.visibility !== "hidden") {
+      const footerY = Math.max(y + 8, h - padding - lineHeight);
+      ctx.strokeStyle = fg + "4d";
+      ctx.beginPath();
+      ctx.moveTo(padding, footerY - 4);
+      ctx.lineTo(w - padding, footerY - 4);
+      ctx.stroke();
+      ctx.font = font;
+      drawGlowText(ctx, footerEl.textContent.toUpperCase(), padding, footerY, fg, glow, settings.glowRadius * settings.glowIntensity);
+    }
+
+    ctx.restore();
   }
 }
 

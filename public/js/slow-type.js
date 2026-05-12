@@ -165,14 +165,15 @@ function partialColorize(fullLine, rawCharsVisible) {
         continue;
       }
     }
-    // Find next delimiter or end
+    // Find next PAIRED delimiter or end
     let next = fullLine.length;
-    const nextStar = fullLine.indexOf("*", i);
-    const nextSlash = fullLine.indexOf("/", i);
-    if (nextStar !== -1 && nextStar < next) next = nextStar;
-    if (nextSlash !== -1 && nextSlash < next) next = nextSlash;
+    const nextStar = fullLine.indexOf("*", i + 1);
+    const nextSlash = fullLine.indexOf("/", i + 1);
+    if (nextStar !== -1 && fullLine.indexOf("*", nextStar + 1) !== -1 && nextStar < next) next = nextStar;
+    if (nextSlash !== -1 && fullLine.indexOf("/", nextSlash + 1) !== -1 && nextSlash < next) next = nextSlash;
     tokens.push({ type: "normal", text: fullLine.substring(i, next), rawStart: i, rawEnd: next });
     i = next;
+    if (i === tokens[tokens.length - 1]?.rawStart && next === i) i++;
   }
 
   // Build output up to rawCharsVisible
@@ -221,12 +222,20 @@ function updatePreVisibility(pre, fullText, visibleChars) {
     const lineEnd = charCount + lineText.length;
 
     if (lineStart >= visibleChars) {
-      spans[i].innerHTML = "";
-      spans[i].style.visibility = "hidden";
+      // Only clear if not already hidden
+      if (spans[i].style.visibility !== "hidden") {
+        spans[i].innerHTML = "";
+        spans[i].style.visibility = "hidden";
+      }
     } else if (lineEnd <= visibleChars) {
-      spans[i].innerHTML = cachedColorize(lineText);
-      spans[i].style.visibility = "visible";
+      // Only set once when line becomes fully visible
+      if (spans[i].dataset.revealed !== "1") {
+        spans[i].innerHTML = cachedColorize(lineText);
+        spans[i].style.visibility = "visible";
+        spans[i].dataset.revealed = "1";
+      }
     } else {
+      // Active line — this is the only one that changes each tick
       const rawPartial = lineText.substring(0, visibleChars - lineStart);
       spans[i].innerHTML = partialColorize(lineText, rawPartial.length);
       spans[i].style.visibility = "visible";
