@@ -294,6 +294,7 @@ export async function initBuilder(container) {
     currentCrt.update(settings);
     if (currentCrt.renderer) {
       currentCrt.renderer.setSettings(settings);
+      currentCrt.renderer._dirty = true;
     }
     updatePreview(settings.soundVolume || 0.7, settings.typingSoundRate || 1.0);
   }
@@ -838,7 +839,7 @@ export async function initBuilder(container) {
       }
     }
     save();
-    updatePreviewSettings();
+    renderPreview();
   }
 
   let saveTimer = null;
