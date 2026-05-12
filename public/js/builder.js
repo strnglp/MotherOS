@@ -82,6 +82,10 @@ export async function initBuilder(container) {
         save();
         refresh();
       });
+      name.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        showTerminalContextMenu(e, t.id, t.name || t.id);
+      });
       group.appendChild(name);
 
       if (activeTerminal && activeTerminal.id === t.id) {
@@ -882,6 +886,51 @@ export async function initBuilder(container) {
     save();
     renderSidebar();
     selectScreen(id);
+  }
+
+  function showTerminalContextMenu(e, terminalId, terminalName) {
+    const existing = document.querySelector(".context-menu");
+    if (existing) existing.remove();
+
+    const menu = document.createElement("div");
+    menu.className = "context-menu";
+    menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;background:#111;border:1px solid #333;padding:4px 0;z-index:1000;`;
+
+    const items = [
+      { label: "Rename", action: async () => {
+        const newName = prompt("Rename terminal:", terminalName);
+        if (!newName) return;
+        if (!activeTerminal || activeTerminal.id !== terminalId) await loadTerminal(terminalId);
+        activeTerminal.name = newName;
+        save();
+        refresh();
+      }},
+      { label: "Delete", action: async () => {
+        if (!confirm(`Delete terminal "${terminalName}"? This cannot be undone.`)) return;
+        await deleteTerminal(terminalId);
+        if (activeTerminal?.id === terminalId) {
+          activeTerminal = null;
+          activeScreenId = null;
+          previewContainer.innerHTML = "";
+          editorPanel.innerHTML = "";
+          settingsPanel.innerHTML = "";
+        }
+        await refresh();
+      }},
+    ];
+
+    for (const item of items) {
+      const div = document.createElement("div");
+      div.textContent = item.label;
+      div.style.cssText = "padding:4px 16px;cursor:pointer;font-size:12px;color:#ccc;";
+      div.addEventListener("mouseenter", () => { div.style.background = "#222"; });
+      div.addEventListener("mouseleave", () => { div.style.background = ""; });
+      div.addEventListener("click", () => { item.action(); menu.remove(); });
+      menu.appendChild(div);
+    }
+
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }), 0);
   }
 
   function showScreenContextMenu(e, screenId) {
