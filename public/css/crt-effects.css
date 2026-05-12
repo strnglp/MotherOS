@@ -57,8 +57,7 @@
   font-size: var(--font-size, 18px);
   line-height: 1.4;
   color: var(--fg);
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  white-space: pre;
   text-transform: uppercase;
 }
 
