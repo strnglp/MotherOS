@@ -158,6 +158,12 @@ function startRenderLoop(renderer, inner, screen, settings) {
       sourceDirty = true;
       renderer._dirty = false;
     }
+    // Force redraw every 500ms for blinking indicators
+    const blinkPhase = Math.floor(time / 500);
+    if (blinkPhase !== renderer._lastBlink) {
+      renderer._lastBlink = blinkPhase;
+      sourceDirty = true;
+    }
     const wasDirty = sourceDirty;
     if (sourceDirty) {
       const cw = sourceCanvas.width;
@@ -289,6 +295,25 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
     ctx.stroke();
     ctx.font = font;
     drawGlowText(ctx, footerEl.textContent.toUpperCase(), padding, fy + 4, fg, glow, settings.glowRadius * settings.glowIntensity);
+
+    // Scroll indicators (flashing arrows on right side of footer)
+    if (contentEl) {
+      const canScrollUp = scrollOffset > 0;
+      const canScrollDown = contentEl.scrollHeight - scrollOffset > contentEl.clientHeight + 1;
+      const blink = Math.floor(Date.now() / 500) % 2 === 0;
+
+      if (blink) {
+        ctx.fillStyle = fg;
+        ctx.font = `${fontSize}px monospace`;
+        const arrowX = w - padding - fontSize;
+        if (canScrollUp) {
+          ctx.fillText("▲", arrowX, fy + 4);
+        }
+        if (canScrollDown) {
+          ctx.fillText("▼", arrowX - (canScrollUp ? fontSize * 1.5 : 0), fy + 4);
+        }
+      }
+    }
   }
 }
 

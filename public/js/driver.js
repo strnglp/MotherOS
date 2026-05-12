@@ -105,7 +105,13 @@ export function initDriver(container, { terminal: terminalId, room }) {
       const target = crt.content.querySelector(`[data-link-id="${links[selectedIndex].id}"]`);
       if (target) {
         target.classList.add("selected");
-        target.scrollIntoView({ block: "nearest" });
+        if (selectedIndex === 0) {
+          crt.content.scrollTop = 0;
+        } else if (selectedIndex === links.length - 1) {
+          crt.content.scrollTop = crt.content.scrollHeight;
+        } else {
+          target.scrollIntoView({ block: "nearest" });
+        }
       }
       ws.send({ type: "select", linkId: links[selectedIndex].id });
     }
@@ -148,15 +154,15 @@ export function initDriver(container, { terminal: terminalId, room }) {
     switch (e.key) {
       case "ArrowUp":
         e.preventDefault();
-        if (links.length > 0) {
-          selectedIndex = (selectedIndex - 1 + links.length) % links.length;
+        if (links.length > 0 && selectedIndex > 0) {
+          selectedIndex--;
           updateSelection();
         }
         break;
       case "ArrowDown":
         e.preventDefault();
-        if (links.length > 0) {
-          selectedIndex = (selectedIndex + 1) % links.length;
+        if (links.length > 0 && selectedIndex < links.length - 1) {
+          selectedIndex++;
           updateSelection();
         }
         break;
