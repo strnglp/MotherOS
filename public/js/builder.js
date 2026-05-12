@@ -398,53 +398,6 @@ export async function initBuilder(container) {
           renderPreview();
         }));
 
-        // Links for this text block
-        const linksDiv = document.createElement("div");
-        linksDiv.className = "links-editor";
-        linksDiv.innerHTML = "<label>Links</label>";
-        (block.links || []).forEach((link, li) => {
-          const row = document.createElement("div");
-          row.className = "link-row";
-          const lineText = block.value.split("\n")[link.line] || "";
-          row.innerHTML = `
-            <span class="link-id">"${lineText.trim()}"</span>
-            <span class="link-target">→ ${link.target}</span>
-          `;
-          const delBtn = document.createElement("button");
-          delBtn.textContent = "X";
-          delBtn.addEventListener("click", () => {
-            block.links.splice(li, 1);
-            screen.content = content;
-            save();
-            renderEditor();
-            renderPreview();
-          });
-          row.appendChild(delBtn);
-          linksDiv.appendChild(row);
-        });
-
-        const addLinkBtn = document.createElement("button");
-        addLinkBtn.textContent = "+ Link";
-        addLinkBtn.addEventListener("click", () => {
-          const lines = block.value.split("\n");
-          const lineOptions = lines.map((l, i) => `${i}: ${l}`).filter((_, i) => lines[i].trim()).join("\n");
-          const lineNum = parseInt(prompt(`Which line is the link?\n\n${lineOptions}`), 10);
-          if (isNaN(lineNum) || lineNum >= lines.length) return;
-
-          const screens = Object.keys(activeTerminal.screens).filter((s) => s !== activeScreenId);
-          const target = prompt(`Navigate to which screen?\n\nAvailable: ${screens.join(", ")}`);
-          if (!target || !activeTerminal.screens[target]) return;
-
-          if (!block.links) block.links = [];
-          const id = `${activeScreenId}-to-${target}-${lineNum}`;
-          block.links.push({ id, line: lineNum, target, label: lines[lineNum].trim() });
-          screen.content = content;
-          save();
-          renderEditor();
-          renderPreview();
-        });
-        linksDiv.appendChild(addLinkBtn);
-        blockEl.appendChild(linksDiv);
       } else if (block.type === "image") {
         const srcInput = document.createElement("input");
         srcInput.type = "text";
