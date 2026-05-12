@@ -97,7 +97,7 @@ export function createCRTScreen(container, settings = {}) {
 
   inner.appendChild(header);
   inner.appendChild(content);
-  content.appendChild(footer);
+  inner.appendChild(footer);
 
   screen.appendChild(inner);
   container.appendChild(screen);
@@ -221,9 +221,11 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
   let y = contentTop + padding - scrollOffset;
 
   if (contentEl) {
+    const footerEl = inner.querySelector(".crt-footer");
+    const contentBottom = (footerEl && footerEl.style.display !== "none") ? footerEl.offsetTop : h;
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, contentTop, w, h - contentTop);
+    ctx.rect(0, contentTop, w, contentBottom - contentTop);
     ctx.clip();
 
     for (const child of contentEl.children) {
@@ -244,16 +246,6 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
           const imgX = (w - imgW) / 2;
           ctx.drawImage(child, imgX, blockY, imgW, imgH);
         }
-      } else if (child.classList.contains("crt-footer")) {
-        if (child.style.visibility === "hidden") continue;
-        const fy = blockY;
-        ctx.strokeStyle = fg + "4d";
-        ctx.beginPath();
-        ctx.moveTo(padding, fy);
-        ctx.lineTo(w - padding, fy);
-        ctx.stroke();
-        ctx.font = font;
-        drawGlowText(ctx, child.textContent.toUpperCase(), padding, fy + 4, fg, glow, settings.glowRadius * settings.glowIntensity);
       } else if (child.tagName === "PRE") {
         const blockFont = child.style.fontFamily
           ? `${fontSize}px ${child.style.fontFamily}`
@@ -284,6 +276,19 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
     }
 
     ctx.restore();
+  }
+
+  // Footer (fixed at bottom, outside scroll area)
+  const footerEl = inner.querySelector(".crt-footer");
+  if (footerEl && footerEl.style.display !== "none" && footerEl.style.visibility !== "hidden") {
+    const fy = footerEl.offsetTop;
+    ctx.strokeStyle = fg + "4d";
+    ctx.beginPath();
+    ctx.moveTo(padding, fy);
+    ctx.lineTo(w - padding, fy);
+    ctx.stroke();
+    ctx.font = font;
+    drawGlowText(ctx, footerEl.textContent.toUpperCase(), padding, fy + 4, fg, glow, settings.glowRadius * settings.glowIntensity);
   }
 }
 
@@ -338,8 +343,6 @@ function applySettings(screen, content, s) {
 }
 
 export function renderContent(contentEl, contentBlocks, options = {}) {
-  // Preserve footer if it's inside content
-  const footer = contentEl.querySelector(".crt-footer");
   contentEl.innerHTML = "";
   const { selectedLinkId, onLinkClick, onLinkHover } = options;
 
@@ -423,8 +426,6 @@ export function renderContent(contentEl, contentBlocks, options = {}) {
     }
   }
 
-  // Re-append footer at end of content
-  if (footer) contentEl.appendChild(footer);
 }
 
 export function setHeaderFooter(crt, screen, terminal = null) {

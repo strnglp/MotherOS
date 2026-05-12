@@ -27,13 +27,11 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
     segments.push({ type: "header", el: headerEl, text: headerEl.dataset.fullText });
   }
 
-  // Content children: dividers, pre (text/menu), images, footer
+  // Content children: dividers, pre (text/menu), images
   let blockIdx = 0;
   for (const child of contentEl.children) {
     if (child.classList.contains("crt-divider")) {
       segments.push({ type: "divider", el: child });
-    } else if (child.classList.contains("crt-footer")) {
-      segments.push({ type: "footer", el: child, text: child.dataset.fullText || child.textContent });
     } else if (child.classList.contains("crt-image-canvas")) {
       segments.push({ type: "image", el: child });
     } else if (child.tagName === "PRE") {
@@ -49,6 +47,12 @@ export function slowType(contentEl, contentBlocks, settings = {}, onComplete) {
       segments.push({ type: "text", el: child, pre: child, text });
       blockIdx++;
     }
+  }
+
+  // Footer (sibling of content in .crt-inner)
+  const footerEl = inner?.querySelector(".crt-footer");
+  if (footerEl && footerEl.style.display !== "none" && footerEl.dataset.fullText) {
+    segments.push({ type: "footer", el: footerEl, text: footerEl.dataset.fullText });
   }
 
   // Hide all initially
