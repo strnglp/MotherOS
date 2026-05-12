@@ -102,11 +102,10 @@ export function createCRTScreen(container, settings = {}) {
   screen.appendChild(inner);
   container.appendChild(screen);
 
-  // Set up WebGL renderer
+  // Set up WebGL renderer — use content-box size (inside bezel border)
   let renderer = null;
-  const rect = screen.getBoundingClientRect();
-  const w = Math.round(rect.width) || 800;
-  const h = Math.round(rect.height) || 600;
+  const w = screen.clientWidth || 800;
+  const h = screen.clientHeight || 600;
   renderer = createCRTRenderer(screen, w, h);
   if (renderer) {
     renderer.glCanvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;z-index:15;pointer-events:none;border-radius:20px;";
@@ -144,9 +143,8 @@ function startRenderLoop(renderer, inner, screen, settings) {
     const { ctx, sourceCanvas } = renderer;
 
     // Check if resize needed (cheap when stable)
-    const rect = screen.getBoundingClientRect();
-    const rw = Math.round(rect.width);
-    const rh = Math.round(rect.height);
+    const rw = screen.clientWidth;
+    const rh = screen.clientHeight;
     if (rw > 0 && rh > 0 && (rw !== lastResizeW || rh !== lastResizeH)) {
       if (rw !== sourceCanvas.width || rh !== sourceCanvas.height) {
         renderer.resize(rw, rh);
@@ -193,28 +191,34 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
   ctx.font = font;
   ctx.textBaseline = "top";
 
-  let y = 0;
-
   // Header
   const headerEl = inner.querySelector(".crt-header");
   if (headerEl && headerEl.style.display !== "none" && headerEl.style.visibility !== "hidden") {
     const text = headerEl.textContent.toUpperCase();
-    y = 8;
-    drawGlowText(ctx, text, padding, y, fg, glow, settings.glowRadius * settings.glowIntensity);
-    y += lineHeight;
+    const hy = headerEl.offsetTop;
+    drawGlowText(ctx, text, padding, hy + 8, fg, glow, settings.glowRadius * settings.glowIntensity);
+    const borderY = hy + headerEl.offsetHeight;
     ctx.strokeStyle = fg + "4d";
     ctx.beginPath();
-    ctx.moveTo(padding, y + 4);
-    ctx.lineTo(w - padding, y + 4);
+    ctx.moveTo(padding, borderY);
+    ctx.lineTo(w - padding, borderY);
     ctx.stroke();
-    y += 12;
   }
 
   // Content
   const contentEl = inner.querySelector(".crt-content");
   const scrollOffset = contentEl ? contentEl.scrollTop : 0;
-  const contentTop = y;
-  y = contentTop + padding - scrollOffset;
+  const contentTop = contentEl ? contentEl.offsetTop : 0;
+
+  // Measure actual line height from DOM to avoid drift
+  const allLines = contentEl ? contentEl.querySelectorAll(".crt-line") : [];
+  let actualLineHeight = lineHeight;
+  if (allLines.length >= 2) {
+    actualLineHeight = allLines[1].offsetTop - allLines[0].offsetTop;
+    if (actualLineHeight <= 0) actualLineHeight = lineHeight;
+  }
+
+  let y = contentTop + padding - scrollOffset;
 
   if (contentEl) {
     ctx.save();
@@ -223,68 +227,60 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
     ctx.clip();
 
     for (const child of contentEl.children) {
+      // Use offsetTop relative to content, adjusted for scroll
+      const blockY = contentTop + child.offsetTop - scrollOffset;
+
       if (child.classList.contains("crt-divider")) {
         if (child.style.visibility === "hidden") continue;
         ctx.strokeStyle = fg + "4d";
         ctx.beginPath();
-        ctx.moveTo(padding, y + 4);
-        ctx.lineTo(w - padding, y + 4);
+        ctx.moveTo(padding, blockY + 4);
+        ctx.lineTo(w - padding, blockY + 4);
         ctx.stroke();
-        y += 16;
       } else if (child.classList.contains("crt-image-canvas")) {
         if (child.width > 0 && child.height > 0) {
           const imgW = child.style.width ? parseInt(child.style.width) : child.width;
           const imgH = (child.height / child.width) * imgW;
           const imgX = (w - imgW) / 2;
-          ctx.drawImage(child, imgX, y, imgW, imgH);
-          y += imgH + 16;
+          ctx.drawImage(child, imgX, blockY, imgW, imgH);
         }
       } else if (child.classList.contains("crt-footer")) {
-        // Footer handled after loop
-      } else {
+        if (child.style.visibility === "hidden") continue;
+        const fy = blockY;
+        ctx.strokeStyle = fg + "4d";
+        ctx.beginPath();
+        ctx.moveTo(padding, fy);
+        ctx.lineTo(w - padding, fy);
+        ctx.stroke();
+        ctx.font = font;
+        drawGlowText(ctx, child.textContent.toUpperCase(), padding, fy + 4, fg, glow, settings.glowRadius * settings.glowIntensity);
+      } else if (child.tagName === "PRE") {
         const blockFont = child.style.fontFamily
           ? `${fontSize}px ${child.style.fontFamily}`
           : font;
         ctx.font = blockFont;
 
         const lines = child.querySelectorAll(".crt-line");
-        for (const line of lines) {
-          if (line.style.visibility === "hidden") {
-            y += lineHeight;
-            continue;
-          }
+        for (let li = 0; li < lines.length; li++) {
+          const line = lines[li];
+          if (line.style.visibility === "hidden") continue;
           const text = line.textContent.toUpperCase();
-          if (!text.trim() && line.style.height) {
-            y += lineHeight;
-            continue;
-          }
+          if (!text.trim() && line.style.height) continue;
+
+          const ly = contentTop + line.offsetTop - scrollOffset;
 
           if (line.classList.contains("selected")) {
             ctx.fillStyle = fg;
-            ctx.fillRect(padding - 4, y - 2, w - padding * 2 + 8, lineHeight);
+            ctx.fillRect(padding - 4, ly - 2, w - padding * 2 + 8, actualLineHeight);
             ctx.fillStyle = settings.colorBackground || "#001a00";
             ctx.font = blockFont;
-            drawGlowText(ctx, text, padding, y, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
+            drawGlowText(ctx, text, padding, ly, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
           } else {
             ctx.font = blockFont;
-            drawColoredLine(ctx, line, padding, y, fg, glow, settings);
+            drawColoredLine(ctx, line, padding, ly, fg, glow, settings);
           }
-          y += lineHeight;
         }
       }
-    }
-
-    // Footer inside content
-    const footerEl = contentEl.querySelector(".crt-footer");
-    if (footerEl && footerEl.style.display !== "none" && footerEl.style.visibility !== "hidden") {
-      const footerY = Math.max(y + 8, h - padding - lineHeight);
-      ctx.strokeStyle = fg + "4d";
-      ctx.beginPath();
-      ctx.moveTo(padding, footerY - 4);
-      ctx.lineTo(w - padding, footerY - 4);
-      ctx.stroke();
-      ctx.font = font;
-      drawGlowText(ctx, footerEl.textContent.toUpperCase(), padding, footerY, fg, glow, settings.glowRadius * settings.glowIntensity);
     }
 
     ctx.restore();
