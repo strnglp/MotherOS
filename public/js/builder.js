@@ -1,5 +1,5 @@
 import { createCRTScreen, renderContent, setHeaderFooter } from "./crt-renderer.js";
-import { listTerminals, getTerminal, createTerminal, updateTerminal, uploadAsset } from "./api-client.js";
+import { listTerminals, getTerminal, createTerminal, updateTerminal, deleteTerminal, uploadAsset } from "./api-client.js";
 import { playPreview, playOnce, updatePreview, preloadAudio, getAvailableSounds } from "./audio.js";
 import { setupImageReveals } from "./image-reveal.js";
 
