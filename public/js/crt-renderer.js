@@ -268,11 +268,14 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
           const ly = contentTop + line.offsetTop - scrollOffset;
 
           if (line.classList.contains("selected")) {
+            const hlPad = 4;
+            const hlHeight = fontSize + hlPad * 2;
+            const hlY = ly + (actualLineHeight - hlHeight) / 2;
             ctx.fillStyle = fg;
-            ctx.fillRect(padding - 4, ly - 2, w - padding * 2 + 8, actualLineHeight);
+            ctx.fillRect(padding - 4, hlY, w - padding * 2 + 8, hlHeight);
             ctx.fillStyle = settings.colorBackground || "#001a00";
             ctx.font = blockFont;
-            drawGlowText(ctx, text, padding, ly, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
+            drawGlowText(ctx, text, padding, hlY + hlPad, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
           } else {
             ctx.font = blockFont;
             drawColoredLine(ctx, line, padding, ly, fg, glow, settings);
