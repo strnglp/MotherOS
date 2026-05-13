@@ -104,7 +104,33 @@ export function createCRTRenderer(container, width, height) {
   container.appendChild(glCanvas);
 
   const gl = glCanvas.getContext("webgl", { alpha: false });
-  if (!gl) return null;
+  if (!gl) {
+    const ctx = glCanvas.getContext("2d");
+    if (!ctx) return null;
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = width;
+    sourceCanvas.height = height;
+    const sourceCtx = sourceCanvas.getContext("2d");
+    return {
+      glCanvas,
+      ctx: sourceCtx,
+      sourceCanvas,
+      _fallback2d: true,
+      _ctx2d: ctx,
+      resize(w, h) {
+        glCanvas.width = w;
+        glCanvas.height = h;
+        sourceCanvas.width = w;
+        sourceCanvas.height = h;
+      },
+      setSettings() {},
+      render(_time, sourceChanged = true) {
+        if (sourceChanged) {
+          ctx.drawImage(sourceCanvas, 0, 0);
+        }
+      },
+    };
+  }
 
   const program = buildProgram(gl, VERTEX_SRC, FRAGMENT_SRC);
   gl.useProgram(program);
