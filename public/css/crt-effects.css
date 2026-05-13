@@ -142,7 +142,7 @@
 .crt-image-canvas {
   display: block;
   height: auto;
-  margin: 8px auto;
+  margin: 8px 0;
   image-rendering: pixelated;
 }
 

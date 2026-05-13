@@ -252,7 +252,7 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
         if (child.width > 0 && child.height > 0) {
           const imgW = child.style.width ? parseInt(child.style.width) : child.width;
           const imgH = (child.height / child.width) * imgW;
-          const imgX = (w - imgW) / 2;
+          const imgX = padding;
           ctx.drawImage(child, imgX, blockY, imgW, imgH);
         }
       } else if (child.tagName === "PRE") {
