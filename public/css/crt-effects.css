@@ -94,6 +94,14 @@
   color: var(--fg);
 }
 
+.crt-alert {
+  color: var(--alert, #ff3333);
+}
+
+.crt-highlight {
+  color: var(--highlight, #ffb000);
+}
+
 .crt-divider {
   border: none;
   border-top: 1px solid var(--fg, #00ff33);

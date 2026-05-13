@@ -107,12 +107,15 @@ export function createCRTScreen(container, settings = {}) {
   const w = screen.clientWidth || 800;
   const h = screen.clientHeight || 600;
   renderer = createCRTRenderer(screen, w, h);
-  if (renderer) {
+  if (renderer && !renderer._fallback2d) {
     renderer.glCanvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;z-index:15;pointer-events:none;border-radius:20px;";
     renderer.setSettings(s);
     inner.style.opacity = "0";
     inner.style.zIndex = "16";
     document.fonts.ready.then(() => startRenderLoop(renderer, inner, screen, s));
+  } else if (renderer?._fallback2d) {
+    renderer.glCanvas.remove();
+    renderer = null;
   }
 
   applySettings(screen, content, s);
@@ -266,19 +269,17 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
           if (!text.trim() && line.style.height) continue;
 
           const ly = contentTop + line.offsetTop - scrollOffset;
+          const textY = ly + (line.offsetHeight - fontSize) / 2;
 
           if (line.classList.contains("selected")) {
-            const hlPad = 4;
-            const hlHeight = fontSize + hlPad * 2;
-            const hlY = ly + (actualLineHeight - hlHeight) / 2;
             ctx.fillStyle = fg;
-            ctx.fillRect(padding - 4, hlY, w - padding * 2 + 8, hlHeight);
+            ctx.fillRect(padding - 4, ly, w - padding * 2 + 8, line.offsetHeight);
             ctx.fillStyle = settings.colorBackground || "#001a00";
             ctx.font = blockFont;
-            drawGlowText(ctx, text, padding, hlY + hlPad, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
+            drawGlowText(ctx, text, padding, textY, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
           } else {
             ctx.font = blockFont;
-            drawColoredLine(ctx, line, padding, ly, fg, glow, settings);
+            drawColoredLine(ctx, line, padding, textY, fg, glow, settings);
           }
         }
       }
@@ -366,6 +367,8 @@ function applySettings(screen, content, s) {
   const style = screen.style;
   style.setProperty("--fg", s.colorForeground);
   style.setProperty("--bg", s.colorBackground);
+  style.setProperty("--alert", s.colorAlert || "#ff3333");
+  style.setProperty("--highlight", s.colorHighlight || "#ffb000");
   style.setProperty("--font-size", `${s.fontSize}px`);
   content.style.fontFamily = `"${s.fontFamily}", monospace`;
 }
