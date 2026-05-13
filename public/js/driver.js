@@ -36,6 +36,16 @@ export function initDriver(container, { terminal: terminalId, room }) {
 
   function navigateTo(screenId, broadcast = true) {
     if (!terminal) return;
+
+    if (screenId.toLowerCase() === "return") {
+      if (history.length > 0) {
+        const prev = history.pop();
+        currentScreen = null;
+        navigateTo(prev, true);
+      }
+      return;
+    }
+
     // Case-insensitive screen lookup
     if (!terminal.screens[screenId]) {
       const match = Object.keys(terminal.screens).find((k) => k.toLowerCase() === screenId.toLowerCase());

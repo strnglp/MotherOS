@@ -1,0 +1,404 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MotherOS Terminal",
+  "description": "Schema for CRT terminal JSON files used by MotherOS. Each terminal defines a set of screens with text, menus, and images that players navigate.",
+  "type": "object",
+  "required": ["id", "name", "screens", "entryScreen"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+      "description": "Unique terminal identifier. Used in URLs and file paths."
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name for the terminal (shown in builder UI)."
+    },
+    "entryScreen": {
+      "type": "string",
+      "description": "Screen ID shown when the terminal first loads. Must match a key in 'screens'."
+    },
+    "defaultHeader": {
+      "type": ["string", "null"],
+      "description": "Default header text shown at the top of every screen (unless overridden). Null to hide."
+    },
+    "defaultHeaderFont": {
+      "type": "string",
+      "description": "Google Font family name for the header. Falls back to terminal fontFamily."
+    },
+    "defaultFooter": {
+      "type": ["string", "null"],
+      "description": "Default footer text shown at the bottom of every screen. Null to hide."
+    },
+    "defaultFooterFont": {
+      "type": "string",
+      "description": "Google Font family name for the footer. Falls back to terminal fontFamily."
+    },
+    "defaults": {
+      "$ref": "#/$defs/settings",
+      "description": "Default visual/audio settings applied to all screens."
+    },
+    "screens": {
+      "type": "object",
+      "description": "Map of screen IDs to screen definitions. IDs are case-insensitive for navigation but preserved as written.",
+      "additionalProperties": {
+        "$ref": "#/$defs/screen"
+      }
+    }
+  },
+  "$defs": {
+    "settings": {
+      "type": "object",
+      "description": "Visual and audio settings for the CRT terminal. All fields are optional — unset values use system defaults.",
+      "properties": {
+        "colorForeground": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#00ff33",
+          "description": "Primary text color (hex)."
+        },
+        "colorBackground": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#001a00",
+          "description": "Screen background color (hex)."
+        },
+        "colorAlert": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#ff3333",
+          "description": "Color for *alert* text (hex)."
+        },
+        "colorHighlight": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#ffb000",
+          "description": "Color for /highlight/ text (hex)."
+        },
+        "colorGlow": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Glow/bloom tint color (hex). Defaults to foreground color."
+        },
+        "glowIntensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 0.8,
+          "description": "Bloom/glow strength. 0 = off."
+        },
+        "glowRadius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30,
+          "default": 8,
+          "description": "Bloom spread radius in pixels."
+        },
+        "scanlineIntensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.15,
+          "description": "Scanline darkness. 0 = off, 1 = fully opaque lines."
+        },
+        "scanlineSpacing": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 3,
+          "description": "Pixel gap between scanlines."
+        },
+        "scanlineSpeed": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 0.5,
+          "description": "Vertical scroll speed of scanlines. 0 = static."
+        },
+        "curvatureAmount": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.2,
+          "default": 0.03,
+          "description": "Barrel distortion strength. 0 = flat screen."
+        },
+        "vignetteIntensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.4,
+          "description": "Edge darkening. 0 = off."
+        },
+        "flickerIntensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "default": 0.03,
+          "description": "Random brightness flicker amount."
+        },
+        "flickerSpeed": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 120,
+          "default": 60,
+          "description": "Flicker rate (Hz)."
+        },
+        "noiseIntensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "default": 0.05,
+          "description": "Static noise grain amount."
+        },
+        "slowTypeSpeed": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1,
+          "default": 0.03,
+          "description": "Seconds between character reveals during text animation."
+        },
+        "slowTypeBatchSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 5,
+          "description": "Max characters revealed per tick (randomized 1 to this value)."
+        },
+        "fontSize": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 72,
+          "default": 18,
+          "description": "Base font size in pixels."
+        },
+        "fontFamily": {
+          "type": "string",
+          "default": "monospace",
+          "description": "Primary font. Use a Google Font name (loaded via index.html) or 'monospace'."
+        },
+        "cursorBlink": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the cursor character blinks."
+        },
+        "cursorBlinkSpeed": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 530,
+          "description": "Cursor blink interval in milliseconds."
+        },
+        "cursorChar": {
+          "type": "string",
+          "maxLength": 1,
+          "default": "█",
+          "description": "Character used for the blinking cursor."
+        },
+        "soundEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable all sound."
+        },
+        "soundVolume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.3,
+          "description": "Master volume (0–1)."
+        },
+        "typingSound": {
+          "type": "string",
+          "description": "Filename from public/audio/ to play during text reveal (e.g. 'teletext.mp3')."
+        },
+        "typingSoundRate": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 4,
+          "default": 1,
+          "description": "Playback speed multiplier for the typing sound."
+        },
+        "navSound": {
+          "type": "string",
+          "description": "Filename from public/audio/ to play on navigation (e.g. 'digital-beep.mp3')."
+        }
+      },
+      "additionalProperties": false
+    },
+    "screen": {
+      "type": "object",
+      "required": ["content"],
+      "properties": {
+        "content": {
+          "type": "array",
+          "description": "Ordered list of content blocks rendered top-to-bottom.",
+          "items": {
+            "$ref": "#/$defs/contentBlock"
+          }
+        },
+        "overrides": {
+          "oneOf": [
+            { "$ref": "#/$defs/settings" },
+            { "type": "null" }
+          ],
+          "description": "Per-screen setting overrides. Merged on top of terminal defaults. Null for no overrides."
+        },
+        "header": {
+          "type": ["string", "null"],
+          "description": "Screen-specific header. Null to use terminal default."
+        },
+        "footer": {
+          "type": ["string", "null"],
+          "description": "Screen-specific footer. Null to use terminal default."
+        }
+      },
+      "additionalProperties": false
+    },
+    "contentBlock": {
+      "oneOf": [
+        { "$ref": "#/$defs/textBlock" },
+        { "$ref": "#/$defs/menuBlock" },
+        { "$ref": "#/$defs/imageBlock" }
+      ]
+    },
+    "textBlock": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "const": "text"
+        },
+        "value": {
+          "type": "string",
+          "description": "Text content. Supports inline formatting:\n- /text/ for highlight color\n- *text* for alert color\n- Newlines create separate lines\n- All text is displayed uppercase"
+        },
+        "links": {
+          "type": "array",
+          "description": "Lines within this block that act as navigable links.",
+          "items": {
+            "$ref": "#/$defs/textLink"
+          }
+        },
+        "fontFamily": {
+          "type": "string",
+          "description": "Override font for this block only."
+        },
+        "divider": {
+          "type": "boolean",
+          "description": "If true, draw a horizontal rule above this block."
+        }
+      },
+      "additionalProperties": false
+    },
+    "textLink": {
+      "type": "object",
+      "required": ["line", "target", "id"],
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based line index within the text block that is navigable."
+        },
+        "target": {
+          "type": "string",
+          "description": "Screen ID to navigate to when this link is activated."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this link."
+        }
+      },
+      "additionalProperties": false
+    },
+    "menuBlock": {
+      "type": "object",
+      "required": ["type", "id", "items"],
+      "properties": {
+        "type": {
+          "const": "menu"
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this menu block."
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Menu entries. Each is a navigable line.",
+          "items": {
+            "type": "object",
+            "required": ["label", "target"],
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Display text for the menu item. Supports /highlight/ and *alert* formatting."
+              },
+              "target": {
+                "type": "string",
+                "description": "Screen ID to navigate to when selected."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "fontFamily": {
+          "type": "string",
+          "description": "Override font for this menu block."
+        },
+        "divider": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "null" }
+          ],
+          "description": "If true, draw a horizontal rule above this block."
+        }
+      },
+      "additionalProperties": false
+    },
+    "imageBlock": {
+      "type": "object",
+      "required": ["type", "src"],
+      "properties": {
+        "type": {
+          "const": "image"
+        },
+        "src": {
+          "type": "string",
+          "description": "Image path relative to the terminal's assets folder (e.g. 'assets/photo.png'). Stored in data/<terminal-id>/assets/."
+        },
+        "revealStyle": {
+          "type": "string",
+          "enum": ["pixelate", "none"],
+          "default": "pixelate",
+          "description": "How the image reveals: 'pixelate' progressively increases resolution, 'none' shows immediately."
+        },
+        "revealSpeed": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 5000,
+          "default": 150,
+          "description": "Milliseconds between pixelation steps."
+        },
+        "blendMode": {
+          "type": "string",
+          "enum": ["normal", "multiply", "screen", "overlay"],
+          "default": "normal",
+          "description": "Canvas composite operation for the image."
+        },
+        "palette": {
+          "type": ["string", "null"],
+          "description": "Color palette mapping mode. Null for original colors."
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Display width in pixels. Height scales proportionally. Omit for natural size."
+        },
+        "divider": {
+          "type": "boolean",
+          "description": "If true, draw a horizontal rule above this block."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
