@@ -274,9 +274,8 @@ export function renderDOMToCanvas(ctx, inner, w, h, settings) {
           if (line.classList.contains("selected")) {
             ctx.fillStyle = fg;
             ctx.fillRect(padding - 4, ly, w - padding * 2 + 8, line.offsetHeight);
-            ctx.fillStyle = settings.colorBackground || "#001a00";
             ctx.font = blockFont;
-            drawGlowText(ctx, text, padding, textY, settings.colorBackground || "#001a00", settings.colorBackground || "#001a00", 0);
+            drawColoredLine(ctx, line, padding, textY, settings.colorBackground || "#001a00", glow, settings);
           } else {
             ctx.font = blockFont;
             drawColoredLine(ctx, line, padding, textY, fg, glow, settings);

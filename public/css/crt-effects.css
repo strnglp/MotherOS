@@ -79,9 +79,25 @@
   color: var(--bg);
 }
 
+.crt-line.selected .crt-alert {
+  color: var(--alert, #ff3333);
+}
+
+.crt-line.selected .crt-highlight {
+  color: var(--highlight, #ffb000);
+}
+
 .crt-line.navigable:hover:not(.selected) {
   background: var(--fg);
   color: var(--bg);
+}
+
+.crt-line.navigable:hover:not(.selected) .crt-alert {
+  color: var(--alert, #ff3333);
+}
+
+.crt-line.navigable:hover:not(.selected) .crt-highlight {
+  color: var(--highlight, #ffb000);
 }
 
 .crt-content.kb-active .crt-line.navigable:hover:not(.selected) {
