@@ -261,9 +261,22 @@ export async function initBuilder(container) {
   function renderPreview() {
     if (!activeTerminal) return;
 
-    if (!activeScreenId) {
-      const settings = { ...getDefaultSettings(), ...activeTerminal.defaults };
+    const screen = activeScreenId ? activeTerminal.screens[activeScreenId] : null;
+    if (activeScreenId && !screen) return;
+
+    const settings = { ...getDefaultSettings(), ...activeTerminal.defaults, ...(screen?.overrides || {}) };
+
+    if (!currentCrt || !previewContainer.contains(currentCrt.screen)) {
       currentCrt = createCRTScreen(previewContainer, settings);
+    } else {
+      currentCrt.update(settings);
+      if (currentCrt.renderer) {
+        currentCrt.renderer.setSettings(settings);
+        currentCrt.renderer._dirty = true;
+      }
+    }
+
+    if (!screen) {
       const sampleContent = [
         { type: "text", value: "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n0123456789 !@#$%^&*()\n\nThe quick brown fox jumps\nover the lazy dog.\n\n*Alert text sample*\n/Highlight text sample/" },
         { type: "menu", id: "sample-menu", items: [
@@ -276,29 +289,17 @@ export async function initBuilder(container) {
       currentCrt.header.textContent = currentCrt.header.dataset.fullText || "";
       currentCrt.footer.textContent = currentCrt.footer.dataset.fullText || "";
       renderContent(currentCrt.content, sampleContent, { selectedLinkId: "sample-menu-1" });
+      updatePreview(settings.soundVolume || 0.7, settings.typingSoundRate || 1.0);
       return;
     }
 
-    const screen = activeTerminal.screens[activeScreenId];
-    if (!screen) return;
-
-    const settings = { ...getDefaultSettings(), ...activeTerminal.defaults, ...screen.overrides };
-    currentCrt = createCRTScreen(previewContainer, settings);
     setHeaderFooter(currentCrt, screen, activeTerminal);
     currentCrt.header.textContent = currentCrt.header.dataset.fullText || "";
     currentCrt.footer.textContent = currentCrt.footer.dataset.fullText || "";
     renderContent(currentCrt.content, screen.content, {});
     setupImageReveals(currentCrt.content, activeTerminal.id, settings);
-  }
-
-  function updatePreviewSettings() {
-    if (!activeTerminal || !currentCrt) return;
-    const screen = activeScreenId ? activeTerminal.screens[activeScreenId] : null;
-    const settings = { ...getDefaultSettings(), ...activeTerminal.defaults, ...(screen?.overrides || {}) };
-    currentCrt.update(settings);
-    if (currentCrt.renderer) {
-      currentCrt.renderer.setSettings(settings);
-      currentCrt.renderer._dirty = true;
+    for (const canvas of currentCrt.content.querySelectorAll(".crt-image-canvas")) {
+      canvas.dispatchEvent(new CustomEvent("startReveal"));
     }
     updatePreview(settings.soundVolume || 0.7, settings.typingSoundRate || 1.0);
   }
