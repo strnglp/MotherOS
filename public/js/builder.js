@@ -270,10 +270,6 @@ export async function initBuilder(container) {
       currentCrt = createCRTScreen(previewContainer, settings);
     } else {
       currentCrt.update(settings);
-      if (currentCrt.renderer) {
-        currentCrt.renderer.setSettings(settings);
-        currentCrt.renderer._dirty = true;
-      }
     }
 
     if (!screen) {

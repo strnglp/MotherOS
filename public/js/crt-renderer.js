@@ -122,7 +122,10 @@ export function createCRTScreen(container, settings = {}) {
 
   return { screen, content, header, footer, renderer, update: (newSettings) => {
     Object.assign(s, newSettings);
-    if (renderer) renderer._dirty = true;
+    if (renderer) {
+      renderer.setSettings(s);
+      renderer._dirty = true;
+    }
     applySettings(screen, content, s);
   }};
 }
